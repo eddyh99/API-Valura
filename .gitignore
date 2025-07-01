@@ -1,0 +1,33 @@
+# CodeIgniter
+/writable/*
+!/writable/index.html
+/writable/cache/*
+!/writable/cache/index.html
+/writable/logs/*
+!/writable/logs/index.html
+/writable/session/*
+!/writable/session/index.html
+/writable/uploads/*
+!/writable/uploads/index.html
+.env
+
+# Composer
+/vendor/
+composer.lock
+
+# Node (opsional)
+node_modules/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE/editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Tests (opsional)
+/phpunit.xml
+/tests/_output/
