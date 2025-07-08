@@ -96,4 +96,78 @@ class Auth extends ResourceController
 
     }
 
+    public function refreshToken()
+    {
+        $request = service('request');
+        $validation = \Config\Services::validation();
+
+        // Validasi input refresh_token wajib ada
+        $validation->setRules([
+            'refresh_token' => 'required'
+        ]);
+
+        if (!$validation->withRequest($request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
+        }
+
+        $data = $request->getJSON();
+        $refreshToken = $data->refresh_token;
+
+        try {
+            // Decode refresh token dengan secret REFRESH_SECRET
+            $decoded = \Firebase\JWT\JWT::decode($refreshToken, new \Firebase\JWT\Key(getenv('REFRESH_SECRET'), 'HS256'));
+
+            // Cek expiry token
+            if ($decoded->exp < time()) {
+                return $this->failUnauthorized('Refresh token expired.');
+            }
+
+            // Ambil data user berdasarkan uid yang ada di token
+            $user = $this->member->find($decoded->uid);
+
+            if (!$user) {
+                return $this->failNotFound('User not found.');
+            }
+
+            // Generate access token baru
+            $accessTokenPayload = [
+                'uid'      => $user['id'],
+                // Hapus 'tenant_id' karena tidak dipakai di sini dan tidak ada di tabel user_logins
+                'username' => $user['username'],
+                'iat'      => time(),
+                'exp'      => time() + 900 // 15 menit
+            ];
+            $newAccessToken = \Firebase\JWT\JWT::encode($accessTokenPayload, getenv('JWT_SECRET'), 'HS256');
+
+            // Insert log login ke tabel user_logins sesuai struktur tabel Anda
+            $db = \Config\Database::connect();
+
+            $userAgent = $request->getUserAgent()->getAgentString();
+
+            $db->table('user_logins')->insert([
+                'user_id'    => $user['id'],
+                'ip_address' => $request->getIPAddress(),
+                'user_agent' => $userAgent,
+                'status'     => 'SUCCESS',
+                'message'    => 'Refresh token successful'
+                // Kolom attempted_at otomatis diatur oleh database dengan current_timestamp()
+            ]);
+
+            // Response sukses dengan access token baru
+            return $this->respond([
+                'new_access_token'  => $newAccessToken,
+                'refresh_token' => $refreshToken,
+                'token_type'    => 'Bearer',
+                'expires_in'    => $accessTokenPayload['exp'],
+                'user'          => [
+                    'id'       => $user['id'],
+                    'username' => $user['username']
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            // Jika token refresh invalid atau error lain
+            return $this->failUnauthorized('Invalid refresh token: ' . $e->getMessage());
+        }
+    }
 }
