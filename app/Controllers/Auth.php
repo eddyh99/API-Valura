@@ -155,7 +155,7 @@ class Auth extends ResourceController
 
             // Response sukses dengan access token baru
             return $this->respond([
-                'new_access_token'  => $newAccessToken,
+                'access_token'  => $newAccessToken,
                 'refresh_token' => $refreshToken,
                 'token_type'    => 'Bearer',
                 'expires_in'    => $accessTokenPayload['exp'],

@@ -78,6 +78,18 @@ defined('EXIT_DATABASE')       || define('EXIT_DATABASE', 8);       // database 
 defined('EXIT__AUTO_MIN')      || define('EXIT__AUTO_MIN', 9);      // lowest automatically-assigned error code
 defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest automatically-assigned error code
 
-$addurl="/";
-$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https://'.$_SERVER['HTTP_HOST'].$addurl : 'http://'.$_SERVER['HTTP_HOST'].$addurl;
-defined('BASE_URL') || define('BASE_URL',$protocol);
+// $addurl="/";
+// $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 'https://'.$_SERVER['HTTP_HOST'].$addurl : 'http://'.$_SERVER['HTTP_HOST'].$addurl;
+// defined('BASE_URL') || define('BASE_URL',$protocol);
+
+$addurl = "/";
+
+if (php_sapi_name() === 'cli' || !isset($_SERVER['HTTP_HOST'])) {
+    // Default URL jika dijalankan lewat CLI atau HTTP_HOST tidak tersedia
+    $protocol = 'http://localhost' . $addurl;
+} else {
+    // Ambil protokol https jika ada, kalau tidak pakai http
+    $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $addurl;
+}
+
+defined('BASE_URL') || define('BASE_URL', $protocol);

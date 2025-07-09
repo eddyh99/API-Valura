@@ -1,12 +1,14 @@
 <?php
 
 namespace App\Controllers\V1;
+
 use App\Models\Mdl_member;
 use CodeIgniter\RESTful\ResourceController;
 
 class User extends ResourceController
 {
-    protected $format    = 'json';
+    protected $format = 'json';
+    protected $member;
 
     public function __construct()
     {
@@ -23,7 +25,7 @@ class User extends ResourceController
             'tenant_id'  => 'required|integer',
         ];
 
-        if (! $this->validate($rules)) {
+        if (!$this->validate($rules)) {
             return $this->failValidationErrors($this->validator->getErrors());
         }
 
@@ -35,17 +37,76 @@ class User extends ResourceController
             'role_id'       => $data['role_id'],
             'tenant_id'     => $data['tenant_id'],
             'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
+            'is_active'     => 1
         ];
 
         $userId = $this->member->insert($insertData);
 
         if (!$userId) {
-            return $this->failServerError('Failed to create user.');
+            return $this->failServerError('Gagal membuat user.');
         }
 
         return $this->respondCreated([
-            'message' => 'User created successfully.',
+            'message' => 'User berhasil dibuat.',
             'user_id' => $userId
         ]);
+    }
+
+    public function update($id = null)
+    {
+        $existingUser = $this->member->where('is_active', 1)->find($id);
+
+        if (!$existingUser) {
+            return $this->failNotFound('User tidak ditemukan atau sudah dihapus.');
+        }
+
+        $data = $this->request->getJSON(true);
+
+        $updateData = [];
+
+        if (!empty($data['username'])) {
+            $updateData['username'] = htmlspecialchars($data['username']);
+        }
+
+        if (!empty($data['email'])) {
+            $updateData['email'] = htmlspecialchars($data['email']);
+        }
+
+        if (!empty($data['role_id'])) {
+            $updateData['role_id'] = (int)$data['role_id'];
+        }
+
+        if (!empty($data['tenant_id'])) {
+            $updateData['tenant_id'] = (int)$data['tenant_id'];
+        }
+
+        if (!empty($data['password'])) {
+            $updateData['password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        }
+
+        if (empty($updateData)) {
+            return $this->fail('Tidak ada data yang dikirim untuk diperbarui.');
+        }
+
+        if (!$this->member->update($id, $updateData)) {
+            return $this->failServerError('Gagal memperbarui data user.');
+        }
+
+        return $this->respond(['message' => 'User berhasil diperbarui.']);
+    }
+
+    public function delete($id = null)
+    {
+        $user = $this->member->where('is_active', 1)->find($id);
+
+        if (!$user) {
+            return $this->failNotFound('User tidak ditemukan atau sudah dihapus.');
+        }
+
+        if (!$this->member->update($id, ['is_active' => 0])) {
+            return $this->failServerError('Gagal melakukan soft delete pada user.');
+        }
+
+        return $this->respondDeleted(['message' => 'User berhasil dinonaktifkan.']);
     }
 }

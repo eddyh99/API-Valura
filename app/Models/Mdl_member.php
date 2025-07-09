@@ -8,7 +8,7 @@ class Mdl_member extends Model
     protected $table            = 'users';
     protected $primaryKey       = 'id';
     protected $allowedFields    = ['username', 'email', 'password_hash', 'tenant_id', 'role_id', 'is_active', 'created_at'];
-    protected $useTimestamps    = true;
+    protected $useTimestamps    = false;
     protected $createdField     = 'created_at';
     protected $retryTable       = 'login_retries';
     protected $logTable         = 'audit_logs';
