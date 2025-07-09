@@ -55,4 +55,41 @@ class ExchangeRate extends ResourceController
 
         return $this->respondDeleted(['message' => 'Exchange rate berhasil di-nonaktifkan']);
     }
+
+    // Show All Exchange Rates
+    public function show_all_exchangeRates()
+    {
+        $tenantId = auth_tenant_id();
+
+        $exchange_rates = $this->model
+            ->where('is_active', 1)
+            ->where('tenant_id', $tenantId)
+            ->findAll();
+
+        return $this->respond([
+            'status' => true,
+            'data' => $exchange_rates
+        ]);
+    }
+
+    // Show Exchange Rate by ID
+    public function showExchangeRate_ByID($id = null)
+    {
+        $tenantId = auth_tenant_id();
+
+        $exchange_rate = $this->model
+            ->where('id', $id)
+            ->where('is_active', 1)
+            ->where('tenant_id', $tenantId)
+            ->first();
+
+        if (!$exchange_rate) {
+            return $this->failNotFound('Exchange rate tidak ditemukan atau sudah dihapus.');
+        }
+
+        return $this->respond([
+            'status' => true,
+            'data' => $exchange_rate
+        ]);
+    }
 }

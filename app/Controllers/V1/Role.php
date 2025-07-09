@@ -52,4 +52,41 @@ class Role extends ResourceController
 
         return $this->respondDeleted(['message' => 'Role berhasil di-nonaktifkan']);
     }
+
+    // Show All Roles
+    public function show_all_roles()
+    {
+        $tenantId = auth_tenant_id();
+
+        $roles = $this->model
+            ->where('is_active', 1)
+            ->where('tenant_id', $tenantId)
+            ->findAll();
+
+        return $this->respond([
+            'status' => true,
+            'data' => $roles
+        ]);
+    }
+
+    // Show Role by ID
+    public function showRole_ByID($id = null)
+    {
+        $tenantId = auth_tenant_id();
+
+        $role = $this->model
+            ->where('id', $id)
+            ->where('is_active', 1)
+            ->where('tenant_id', $tenantId)
+            ->first();
+
+        if (!$role) {
+            return $this->failNotFound('Role tidak ditemukan atau sudah dihapus.');
+        }
+
+        return $this->respond([
+            'status' => true,
+            'data' => $role
+        ]);
+    }
 }
