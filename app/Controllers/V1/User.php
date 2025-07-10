@@ -23,6 +23,7 @@ class User extends ResourceController
             'password'   => 'required|min_length[6]',
             'role_id'    => 'required|integer',
             'tenant_id'  => 'required|integer',
+            'branch_id'  => 'required|integer' // optional
         ];
 
         if (!$this->validate($rules)) {
@@ -37,7 +38,8 @@ class User extends ResourceController
             'role_id'       => $data['role_id'],
             'tenant_id'     => $data['tenant_id'],
             'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
-            'is_active'     => 1
+            'is_active'     => 1,
+            'branch_id'     => $data['branch_id']
         ];
 
         $userId = $this->member->insert($insertData);
@@ -82,6 +84,10 @@ class User extends ResourceController
 
         if (!empty($data['password'])) {
             $updateData['password_hash'] = password_hash($data['password'], PASSWORD_DEFAULT);
+        }
+
+        if (!empty($data['branch_id'])) {
+            $updateData['branch_id'] = (int)$data['branch_id'];
         }
 
         if (empty($updateData)) {
