@@ -75,4 +75,33 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
 // Transaction
 $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->post('transaction', 'V1\Transaction::create');
+
+    $routes->post('transaction/daily', 'V1\Transaction::dailyReport');
 });
+
+// Bank
+$routes->group('', ['filter' => 'authApi'], function($routes) {
+    $routes->post('bank', 'V1\Bank::create');
+    $routes->put('bank/(:num)', 'V1\Bank::update/$1');
+    $routes->delete('bank/(:num)', 'V1\Bank::delete/$1');
+
+    $routes->get('bank', 'V1\Bank::show_all_banks');
+    $routes->get('bank/(:num)', 'V1\Bank::showBank_ByID/$1');
+});
+
+// Agent
+$routes->group('', ['filter' => 'authApi'], function($routes) {
+    $routes->post('agent', 'V1\Agent::create');
+    $routes->put('agent/(:num)', 'V1\Agent::update/$1');
+    $routes->delete('agent/(:num)', 'V1\Agent::delete/$1');
+
+    $routes->get('agent', 'V1\Agent::show_all_agents');
+    $routes->get('agent/(:num)', 'V1\Agent::showAgent_ByID/$1');
+});
+
+// Bank Deposit (Penukaran)
+$routes->group('', ['filter' => 'authApi'], function($routes) {
+    $routes->post('bank-deposit', 'V1\BankDeposit::create');
+});
+
+// Report

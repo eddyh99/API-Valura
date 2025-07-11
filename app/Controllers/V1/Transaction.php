@@ -83,4 +83,66 @@ class Transaction extends ResourceController
             'transaction_id' => $transactionId
         ]);
     }
+
+    public function dailyReport()
+    {
+        $data = $this->request->getJSON(true); // Ambil data dari body JSON
+
+        $startDate = $data['start_date'] ?? null;
+        $endDate   = $data['end_date'] ?? null;
+        $branchId  = $data['branch_id'] ?? null;
+
+        // Validasi
+        if (!$startDate || !$endDate) {
+            return $this->failValidationErrors('Tanggal mulai dan akhir wajib diisi.');
+        }
+
+        $start = date('Y-m-d 00:00:00', strtotime($startDate));
+        $end   = date('Y-m-d 23:59:59', strtotime($endDate));
+
+        $db = \Config\Database::connect();
+
+        $builder = $db->table('transactions t')
+            ->select('t.id as transaction_id, t.transaction_type, t.transaction_date, t.client_id, t.branch_id, t.created_by, t.created_at,
+                    tl.currency_id, tl.amount_foreign, tl.amount_local, tl.rate_used, c.name as currency_name')
+            ->join('transaction_lines tl', 'tl.transaction_id = t.id')
+            ->join('currencies c', 'c.id = tl.currency_id', 'left')
+            ->where('t.transaction_date >=', $start)
+            ->where('t.transaction_date <=', $end);
+
+        if ($branchId) {
+            $builder->where('t.branch_id', $branchId);
+        }
+
+        $builder->orderBy('t.transaction_date', 'ASC');
+        $results = $builder->get()->getResultArray();
+
+        // Group by transaction ID
+        $grouped = [];
+        foreach ($results as $row) {
+            $trxId = $row['transaction_id'];
+            if (!isset($grouped[$trxId])) {
+                $grouped[$trxId] = [
+                    'transaction_id' => $trxId,
+                    'transaction_type' => $row['transaction_type'],
+                    'transaction_date' => $row['transaction_date'],
+                    'client_id' => $row['client_id'],
+                    'branch_id' => $row['branch_id'],
+                    'created_by' => $row['created_by'],
+                    'created_at' => $row['created_at'],
+                    'lines' => []
+                ];
+            }
+
+            $grouped[$trxId]['lines'][] = [
+                'currency_id' => $row['currency_id'],
+                'currency_name' => $row['currency_name'],
+                'amount_foreign' => (float) $row['amount_foreign'],
+                'rate_used' => (float) $row['rate_used'],
+                'amount_local' => (float) $row['amount_local'],
+            ];
+        }
+
+        return $this->respond(array_values($grouped));
+    }
 }
