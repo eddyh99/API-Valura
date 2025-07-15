@@ -7,7 +7,10 @@ class Mdl_member extends Model
 {
     protected $table            = 'users';
     protected $primaryKey       = 'id';
-    protected $allowedFields    = ['username', 'email', 'password_hash', 'tenant_id', 'role_id', 'is_active', 'created_at', 'branch_id'];
+    protected $allowedFields    = [
+                                    'username', 'email', 'password_hash', 'tenant_id', 'role_id',
+                                    'is_active', 'created_at', 'branch_id', 'otp_code', 'otp_requested_at'
+                                ];
     protected $useTimestamps    = false;
     protected $createdField     = 'created_at';
     protected $retryTable       = 'login_retries';
@@ -18,6 +21,11 @@ class Mdl_member extends Model
     public function getByUsername($username)
     {
         return $this->where('username', $username)->where('is_active', 1)->first();
+    }
+
+    public function getInactiveByEmail($email)
+    {
+        return $this->where('email', $email)->where('is_active', 0)->first();
     }
 
     public function isLocked($username)
@@ -79,5 +87,43 @@ class Mdl_member extends Model
             'created_at'  => date('Y-m-d H:i:s')
         ]);
     }
+
+    // Forgot Password
+    public function getByEmail($email)
+    {
+        return $this->where('email', $email)->where('is_active', 1)->first();
+    }
+    public function updatePasswordByEmail($email, $newPasswordHash)
+    {
+        return $this->where('email', $email)
+            ->set('password_hash', $newPasswordHash)
+            ->update();
+    }
+
+    public function saveOTPToUser($email, $otp)
+    {
+        return $this->where('email', $email)->set([
+            'otp_code' => $otp,
+            'otp_requested_at' => date('Y-m-d H:i:s')
+        ])->update();
+    }
+    public function validateOTP($email, $otp)
+    {
+        $user = $this->getByEmail($email);
+        if (!$user || $user['otp_code'] !== $otp) {
+            return false;
+        }
+
+        $expiresAt = strtotime($user['otp_requested_at']) + (30 * 60); // 30 menit
+        return time() <= $expiresAt;
+    }
+    public function clearOTP($email)
+    {
+        return $this->where('email', $email)->set([
+            'otp_code' => null,
+            'otp_requested_at' => null
+        ])->update();
+    }
+
 
 }

@@ -6,11 +6,23 @@ use CodeIgniter\Router\RouteCollection;
  * @var RouteCollection $routes
  */
 
-//  Login JWT Token
+//  Log in JWT Token
 $routes->post('login', 'Auth::postLogin');
 
 // Refresh JWT Token
 $routes->post('refresh-token', 'Auth::refreshToken');
+
+// Forgot Password
+$routes->post('forgot-password-otp', 'Auth::postForgotPasswordOtp');
+$routes->post('reset-password-otp', 'Auth::postResetPasswordOtp');
+
+// Signup
+$routes->post('register', 'Auth::postRegister');
+$routes->post('activate-otp', 'Auth::postActivateOtp');
+$routes->post('resend-otp', 'Auth::postResendOtp');
+
+// Log out
+$routes->post('logout', 'Auth::postLogout');
 
 // Data Pengguna
 $routes->group('', ['filter' => 'authApi'], function($routes) {
