@@ -236,7 +236,112 @@ class Auth extends ResourceController
     //     ]);
 
     // }
-    // Remember Me
+    // Remember Me v1
+    // public function postLogin()
+    // {
+    //     $request = service('request');
+    //     $validation = \Config\Services::validation();
+
+    //     $validation->setRules([
+    //         'username'    => 'required',
+    //         'password'    => 'required',
+    //         'ip_address'  => 'required|valid_ip',
+    //         'domain'      => 'required',
+    //         'remember_me' => 'permit_empty'
+    //     ]);
+
+    //     if (!$validation->withRequest($request)->run()) {
+    //         return $this->failValidationErrors($validation->getErrors());
+    //     }
+
+    //     $data     = $request->getJSON();
+    //     $username = $data->username;
+    //     $password = $data->password;
+    //     $ip       = $data->ip_address;
+
+    //     // Cek akun terkunci
+    //     if ($this->member->isLocked($username)) {
+    //         return $this->fail('Account is temporarily locked. Try again later.', 429);
+    //     }
+
+    //     $user = $this->member->getUserWithRole($username);
+
+    //     // Catat login gagal
+    //     $this->member->logLoginAttempt($username, $ip, 'FAILED', 'Invalid credentials');
+    //     $this->member->incrementRetry($username);
+
+    //     if (!$user || !password_verify($password, $user['password_hash'])) {
+    //         return $this->failUnauthorized('Invalid username or password');
+    //     }
+
+    //     // Reset percobaan login
+    //     $this->member->resetRetry($username);
+    //     $this->member->logLoginAttempt($username, $ip, 'SUCCESS', 'Login successful');
+
+    //     // Cek Remember Me
+    //     $remember = false;
+    //     if (isset($data->remember_me)) {
+    //         $val = $data->remember_me;
+    //         $remember = ($val === true || $val === 'true' || $val === 1 || $val === '1');
+    //     }
+
+    //     // Set waktu expired
+    //     $accessTokenTTL  = 3600; // 1 Jam
+    //     // $accessTokenTTL  = 15; // detik
+    //     $refreshTokenTTL = 0;
+
+    //     $accessTokenPayload = [
+    //         'uid'       => $user['id'],
+    //         'tenant_id' => $user['tenant_id'],
+    //         'username'  => $user['username'],
+    //         'iat'       => time(),
+    //         'exp'       => time() + $accessTokenTTL
+    //     ];
+
+    //     $accessToken = JWT::encode($accessTokenPayload, getenv('JWT_SECRET'), 'HS256');
+
+    //     // Jika remember me aktif, buatkan refresh token
+    //     if ($remember) {
+    //         $refreshTokenTTL = 60 * 60 * 24 * 7; // 7 hari
+    //         $refreshTokenPayload = [
+    //             'uid'       => $user['id'],
+    //             'tenant_id' => $user['tenant_id'],
+    //             'username'  => $user['username'],
+    //             'iat'       => time(),
+    //             'exp'       => time() + $refreshTokenTTL
+    //         ];
+
+    //         $refreshToken = JWT::encode($refreshTokenPayload, getenv('REFRESH_SECRET'), 'HS256');
+
+    //         return $this->respond([
+    //             'access_token'  => $accessToken,
+    //             'refresh_token' => $refreshToken,
+    //             'token_type'    => 'Bearer',
+    //             'expires_in'    => $accessTokenTTL,
+    //             'remember_for'  => $refreshTokenTTL,
+    //             'user' => [
+    //                 'id'       => $user['id'],
+    //                 'username' => $user['username'],
+    //                 'role'       => $user['role_name'],
+    //                 'permissions'=> json_decode($user['permissions']) // decode dari JSON
+    //             ]
+    //         ]);
+    //     }
+
+    //     // Jika Remember Me tidak aktif, tidak kirim refresh token
+    //     return $this->respond([
+    //         'access_token' => $accessToken,
+    //         'token_type'   => 'Bearer',
+    //         'expires_in'   => $accessTokenTTL,
+    //         'user' => [
+    //             'id'       => $user['id'],
+    //             'username' => $user['username'],
+    //             'role'       => $user['role_name'],
+    //             'permissions'=> json_decode($user['permissions']) // decode dari JSON
+    //         ]
+    //     ]);
+    // }
+    // Remember me v2 17Juli2025 jam 13:01
     public function postLogin()
     {
         $request = service('request');
@@ -264,9 +369,9 @@ class Auth extends ResourceController
             return $this->fail('Account is temporarily locked. Try again later.', 429);
         }
 
-        $user = $this->member->getByUsername($username);
+        $user = $this->member->getUserWithRole($username);
 
-        // Catat login gagal
+        // Catat login gagal (sementara)
         $this->member->logLoginAttempt($username, $ip, 'FAILED', 'Invalid credentials');
         $this->member->incrementRetry($username);
 
@@ -287,8 +392,7 @@ class Auth extends ResourceController
 
         // Set waktu expired
         $accessTokenTTL  = 3600; // 1 Jam
-        // $accessTokenTTL  = 15; // detik
-        $refreshTokenTTL = 0;
+        $refreshTokenTTL = $remember ? (60 * 60 * 24 * 7) : (60 * 60 * 24); // 7 hari atau 1 hari
 
         $accessTokenPayload = [
             'uid'       => $user['id'],
@@ -300,40 +404,28 @@ class Auth extends ResourceController
 
         $accessToken = JWT::encode($accessTokenPayload, getenv('JWT_SECRET'), 'HS256');
 
-        // Jika remember me aktif, buatkan refresh token
-        if ($remember) {
-            $refreshTokenTTL = 60 * 60 * 24 * 7; // 7 hari
-            $refreshTokenPayload = [
-                'uid'       => $user['id'],
-                'tenant_id' => $user['tenant_id'],
-                'username'  => $user['username'],
-                'iat'       => time(),
-                'exp'       => time() + $refreshTokenTTL
-            ];
+        // Buatkan refresh token
+        $refreshTokenPayload = [
+            'uid'       => $user['id'],
+            'tenant_id' => $user['tenant_id'],
+            'username'  => $user['username'],
+            'iat'       => time(),
+            'exp'       => time() + $refreshTokenTTL
+        ];
 
-            $refreshToken = JWT::encode($refreshTokenPayload, getenv('REFRESH_SECRET'), 'HS256');
+        $refreshToken = JWT::encode($refreshTokenPayload, getenv('REFRESH_SECRET'), 'HS256');
 
-            return $this->respond([
-                'access_token'  => $accessToken,
-                'refresh_token' => $refreshToken,
-                'token_type'    => 'Bearer',
-                'expires_in'    => $accessTokenTTL,
-                'remember_for'  => $refreshTokenTTL,
-                'user' => [
-                    'id'       => $user['id'],
-                    'username' => $user['username']
-                ]
-            ]);
-        }
-
-        // Jika Remember Me tidak aktif, tidak kirim refresh token
         return $this->respond([
-            'access_token' => $accessToken,
-            'token_type'   => 'Bearer',
-            'expires_in'   => $accessTokenTTL,
+            'access_token'  => $accessToken,
+            'refresh_token' => $refreshToken,
+            'token_type'    => 'Bearer',
+            'expires_in'    => $accessTokenTTL,
+            'remember_for'  => $refreshTokenTTL,
             'user' => [
-                'id'       => $user['id'],
-                'username' => $user['username']
+                'id'          => $user['id'],
+                'username'    => $user['username'],
+                'role'        => $user['role_name'],
+                'permissions' => json_decode($user['permissions']) // decode dari JSON
             ]
         ]);
     }

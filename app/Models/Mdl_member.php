@@ -18,6 +18,15 @@ class Mdl_member extends Model
     protected $maxRetry         = 5;
     protected $retryTimeout     = 15 * 60; // 15 minutes
 
+    public function getUserWithRole($username)
+    {
+        return $this->select('users.*, roles.name AS role_name, roles.permissions')
+                    ->join('roles', 'roles.id = users.role_id', 'left')
+                    ->where('users.username', $username)
+                    ->where('users.is_active', 1)
+                    ->first();
+    }
+
     public function getByUsername($username)
     {
         return $this->where('username', $username)->where('is_active', 1)->first();
