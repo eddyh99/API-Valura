@@ -6,11 +6,23 @@ use CodeIgniter\Router\RouteCollection;
  * @var RouteCollection $routes
  */
 
-//  Login JWT Token
+//  Log in JWT Token
 $routes->post('login', 'Auth::postLogin');
 
 // Refresh JWT Token
 $routes->post('refresh-token', 'Auth::refreshToken');
+
+// Forgot Password
+$routes->post('forgot-password-otp', 'Auth::postForgotPasswordOtp');
+$routes->post('reset-password-otp', 'Auth::postResetPasswordOtp');
+
+// Signup
+$routes->post('register', 'Auth::postRegister');
+$routes->post('activate-otp', 'Auth::postActivateOtp');
+$routes->post('resend-otp', 'Auth::postResendOtp');
+
+// Log out
+$routes->post('logout', 'Auth::postLogout');
 
 // Data Pengguna
 $routes->group('', ['filter' => 'authApi'], function($routes) {
@@ -32,7 +44,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->get('role/(:num)', 'V1\Role::showRole_ByID/$1');
 });
 
-// Add Currency
+// Currency
 $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->post('currency', 'V1\Currency::create');
     $routes->put('currency/(:num)', 'V1\Currency::update/$1');
@@ -97,6 +109,16 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
 
     $routes->get('agent', 'V1\Agent::show_all_agents');
     $routes->get('agent/(:num)', 'V1\Agent::showAgent_ByID/$1');
+});
+
+// Client
+$routes->group('', ['filter' => 'authApi'], function($routes) {
+    $routes->post('client', 'V1\Client::create');
+    $routes->put('client/(:num)', 'V1\Client::update/$1');
+    $routes->delete('client/(:num)', 'V1\Client::delete/$1');
+
+    $routes->get('client', 'V1\Client::show_all_clients');
+    $routes->get('client/(:num)', 'V1\Client::showClient_ByID/$1');
 });
 
 // Bank Deposit (Penukaran)
