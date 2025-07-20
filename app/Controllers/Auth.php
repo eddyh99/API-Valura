@@ -2,15 +2,13 @@
 
 namespace App\Controllers;
 
-use App\Models\Mdl_member;
-use CodeIgniter\RESTful\ResourceController;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
-use Config\Services;
-
 use App\Models\Mdl_tenant;
+use App\Models\Mdl_member;
+use App\Controllers\BaseApiController;
 
-class Auth extends ResourceController
+class Auth extends BaseApiController
 {
 
     protected $format    = 'json';
@@ -20,21 +18,16 @@ class Auth extends ResourceController
         $this->member = new Mdl_member();
     }
 
-    // public function postRegister()
-    // {
-    //     //do Register
-    // }
     public function postRegister()
     {
-        $validation = \Config\Services::validation();
-        $validation->setRules([
+        $this->validation->setRules([
             'tenant_name' => 'required|min_length[3]',
             'username'    => 'required|min_length[4]|is_unique[users.username]',
             'email'       => 'required|valid_email|is_unique[users.email]',
             'password'    => 'required|min_length[6]',
         ]);
 
-        if (!$validation->withRequest($this->request)->run()) {
+        if (!$this->validation->withRequest($this->request)->run()) {
             return $this->failValidationErrors($validation->getErrors());
         }
 
@@ -70,13 +63,12 @@ class Auth extends ResourceController
         }
 
         // Step 3: Kirim OTP ke Email
-        $emailService = \Config\Services::email();
-        $emailService->setTo($data['email']);
-        $emailService->setFrom('noreply@valura.com', 'Valura Support');
-        $emailService->setSubject('OTP Activation Code');
-        $emailService->setMessage("Welcome! Your OTP code is: <strong>$otp</strong><br>It will expire in 30 minutes.");
+        $this->emailService->setTo($data['email']);
+        $this->emailService->setFrom('noreply@valura.com', 'Valura Support');
+        $this->emailService->setSubject('OTP Activation Code');
+        $this->emailService->setMessage("Welcome! Your OTP code is: <strong>$otp</strong><br>It will expire in 30 minutes.");
 
-        if (!$emailService->send()) {
+        if (!$this->emailService->send()) {
             return $this->failServerError('Gagal mengirim OTP email');
         }
 
@@ -86,6 +78,7 @@ class Auth extends ResourceController
             'user_id'    => $userId
         ]);
     }
+    
     public function postActivateOtp()
     {
         $validation = \Config\Services::validation();
@@ -128,6 +121,7 @@ class Auth extends ResourceController
             'message' => 'Akun berhasil diaktifkan'
         ]);
     }
+    
     public function postResendOtp()
     {
         $validation = \Config\Services::validation();
@@ -342,11 +336,10 @@ class Auth extends ResourceController
     //     ]);
     // }
     // Remember me v2 17Juli2025 jam 13:01
+    
     public function postLogin()
     {
-        $request = service('request');
-        $validation = \Config\Services::validation();
-
+        $validation = $this->validation;
         $validation->setRules([
             'username'    => 'required',
             'password'    => 'required',
@@ -355,11 +348,11 @@ class Auth extends ResourceController
             'remember_me' => 'permit_empty'
         ]);
 
-        if (!$validation->withRequest($request)->run()) {
+        if (!$validation->withRequest($this->request)->run()) {
             return $this->failValidationErrors($validation->getErrors());
         }
 
-        $data     = $request->getJSON();
+        $data     = $this->request->getJSON();
         $username = $data->username;
         $password = $data->password;
         $ip       = $data->ip_address;
@@ -391,13 +384,16 @@ class Auth extends ResourceController
         }
 
         // Set waktu expired
-        $accessTokenTTL  = 3600; // 1 Jam
+        $accessTokenTTL  = 60; // 1 Jam
         $refreshTokenTTL = $remember ? (60 * 60 * 24 * 7) : (60 * 60 * 24); // 7 hari atau 1 hari
 
         $accessTokenPayload = [
             'uid'       => $user['id'],
             'tenant_id' => $user['tenant_id'],
             'username'  => $user['username'],
+            'branch_id'   => $user["branch_id"],
+            'role'        => $user['role_name'],
+            'permissions' => json_decode($user['permissions']),
             'iat'       => time(),
             'exp'       => time() + $accessTokenTTL
         ];
@@ -424,6 +420,7 @@ class Auth extends ResourceController
             'user' => [
                 'id'          => $user['id'],
                 'username'    => $user['username'],
+                'branch_id'   => $user["branch_id"],
                 'role'        => $user['role_name'],
                 'permissions' => json_decode($user['permissions']) // decode dari JSON
             ]
@@ -531,7 +528,7 @@ class Auth extends ResourceController
             }
 
             // Ambil user dari DB
-            $user = $this->member->find($decoded->uid);
+            $user = $this->member->getUserWithID($decoded->uid,$decoded->tenant_id, $decoded->username);
             if (!$user) {
                 return $this->failNotFound('User not found.');
             }
@@ -541,6 +538,9 @@ class Auth extends ResourceController
                 'uid'       => $user['id'],
                 'tenant_id' => $user['tenant_id'],
                 'username'  => $user['username'],
+                'branch_id'   => $user["branch_id"],
+                'role'        => $user['role_name'],
+                'permissions' => json_decode($user['permissions']),
                 'iat'       => time(),
                 'exp'       => time() + 3600
             ];
@@ -552,8 +552,11 @@ class Auth extends ResourceController
                 'token_type'   => 'Bearer',
                 'expires_in'   => $newAccessTokenPayload['exp'],
                 'user' => [
-                    'id'       => $user['id'],
-                    'username' => $user['username']
+                    'id'          => $user['id'],
+                    'username'    => $user['username'],
+                    'branch_id'   => $user["branch_id"],
+                    'role'        => $user['role_name'],
+                    'permissions' => json_decode($user['permissions']) // decode dari JSON
                 ]
             ]);
 

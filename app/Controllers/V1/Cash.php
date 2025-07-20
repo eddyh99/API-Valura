@@ -20,8 +20,8 @@ class Cash extends ResourceController
         $data['is_active']  = 1;
 
         // Validasi movement_type harus IN atau OUT
-        if (!in_array($data['movement_type'] ?? '', ['IN', 'OUT'])) {
-            return $this->failValidationErrors(['movement_type' => 'Movement type harus IN atau OUT']);
+        if (!in_array($data['movement_type'] ?? '', ['IN', 'OUT', 'AWAL'])) {
+            return $this->failValidationErrors(['movement_type' => 'Movement type harus IN/OUT/AWAL']);
         }
 
         if (!$this->model->insert($data)) {

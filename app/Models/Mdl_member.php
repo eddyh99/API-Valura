@@ -26,6 +26,21 @@ class Mdl_member extends Model
                     ->where('users.is_active', 1)
                     ->first();
     }
+    
+    public function getUserWithID($uid,$tenant_id,$username){
+        $sql="SELECT us.*, ro.name AS role_name, ro.permissions
+                FROM users us LEFT JOIN roles ro ON us.role_id=ro.id
+                INNER JOIN tenants te ON us.tenant_id=te.id
+                WHERE us.username = ?
+                AND us.tenant_id = ?
+                AND us.id = ?
+                AND us.is_active=1
+                AND te.is_active=1
+             ";
+        $query=$this->db->query($sql,[$username,$tenant_id,$uid]);
+        return $query->getRowArray();
+             
+    }
 
     public function getByUsername($username)
     {

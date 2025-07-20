@@ -2,6 +2,8 @@
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Firebase\JWT\ExpiredException;
+use CodeIgniter\HTTP\Exceptions\HTTPException;
 
 function auth_user_id()
 {
@@ -20,7 +22,7 @@ function decode_jwt_payload()
     $authHeader = service('request')->getHeaderLine('Authorization');
 
     if (!$authHeader || !preg_match('/Bearer\s(\S+)/', $authHeader, $matches)) {
-        return null;
+        throw new \CodeIgniter\HTTP\Exceptions\HTTPException('Token expired', 401);
     }
 
     $token = $matches[1];
@@ -29,6 +31,6 @@ function decode_jwt_payload()
     try {
         return JWT::decode($token, new Key($key, 'HS256'));
     } catch (Exception $e) {
-        return null;
+        throw new \CodeIgniter\HTTP\Exceptions\HTTPException('Token expired', 401);
     }
 }
