@@ -17,6 +17,12 @@ function auth_tenant_id()
     return $payload->tenant_id ?? null;  // Ambil tenant_id dari token, jika ada
 }
 
+function auth_branch_id()
+{
+    $payload = decode_jwt_payload();
+    return $payload->branch_id ?? null;  // Ambil branch_id dari token, jika ada
+}
+
 function decode_jwt_payload()
 {
     $authHeader = service('request')->getHeaderLine('Authorization');

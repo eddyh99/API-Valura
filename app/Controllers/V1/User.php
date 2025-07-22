@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_member;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class User extends ResourceController
+class User extends BaseApiController
 {
     protected $format = 'json';
     protected $member;

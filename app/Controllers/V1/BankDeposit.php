@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_bank_deposit;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class BankDeposit extends ResourceController
+class BankDeposit extends BaseApiController
 {
     protected $format = 'json';
     protected $depositModel;

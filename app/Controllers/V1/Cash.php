@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_cash;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class Cash extends ResourceController
+class Cash extends BaseApiController
 {
     protected $modelName = Mdl_cash::class;
     protected $format    = 'json';
@@ -96,6 +96,25 @@ class Cash extends ResourceController
 
         if (!$cash) {
             return $this->failNotFound('Cash tidak ditemukan atau sudah dihapus.');
+        }
+
+        return $this->respond([
+            'status' => true,
+            'data' => $cash
+        ]);
+    }
+
+    public function showCash_ByBranchID($id = null)
+    {
+        $branchId = auth_branch_id();
+
+        $cash = $this->model
+            ->where('branch_id', $id)
+            ->where('is_active', 1)
+            ->first();
+
+        if (!$cash) {
+            return $this->failNotFound('Branch tidak ditemukan atau sudah dihapus.');
         }
 
         return $this->respond([
