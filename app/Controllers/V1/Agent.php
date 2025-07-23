@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_agent;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class Agent extends ResourceController
+class Agent extends BaseApiController
 {
     protected $modelName = Mdl_agent::class;
     protected $format    = 'json';

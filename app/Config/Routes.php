@@ -52,6 +52,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
 
     $routes->get('currency', 'V1\Currency::show_all_currencies');
     $routes->get('currency/(:num)', 'V1\Currency::showCurrency_ByID/$1');
+    $routes->get('currency/default', 'V1\Currency::show_default_currencies');
 });
 
 // Exchange Rate
@@ -82,6 +83,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
 
     $routes->get('cash', 'V1\Cash::show_all_cashes');
     $routes->get('cash/(:num)', 'V1\Cash::showCash_ByID/$1');
+    $routes->get('cash/branch/(:num)', 'V1\Cash::showCash_ByBranchID/$1');
 });
 
 // Transaction

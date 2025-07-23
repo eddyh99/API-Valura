@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_bank;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class Bank extends ResourceController
+class Bank extends BaseApiController
 {
     protected $modelName = Mdl_bank::class;
     protected $format    = 'json';

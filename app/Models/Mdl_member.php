@@ -18,6 +18,126 @@ class Mdl_member extends Model
     protected $maxRetry         = 5;
     protected $retryTimeout     = 15 * 60; // 15 minutes
 
+    // Raw Query
+    public function insertUserRaw(array $data)
+    {
+        $sql = "INSERT INTO users 
+                (username, email, tenant_id, password_hash, role_id, branch_id, is_active, otp_code, otp_requested_at, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        $this->db->query($sql, [
+            $data['username'],
+            $data['email'],
+            $data['tenant_id'],
+            $data['password_hash'],
+            $data['role_id'],
+            $data['branch_id'],
+            $data['is_active'],
+            $data['otp_code'],
+            $data['otp_requested_at'],
+            $data['created_at']
+        ]);
+
+        if ($this->db->affectedRows() > 0) {
+            return $this->db->insertID();
+        }
+
+        return false;
+    }
+
+    // Cari user berdasarkan otp_code dan is_active=0 menggunakan raw query
+    public function getUserByOtpRaw(string $otp)
+    {
+        $sql = "SELECT * FROM users WHERE otp_code = ? AND is_active = 0 LIMIT 1";
+        $query = $this->db->query($sql, [$otp]);
+        return $query->getRowArray();
+    }
+    // Cek apakah OTP sudah expired berdasarkan waktu otp_requested_at (30 menit)
+    public function isOtpExpired(string $otpRequestedAt): bool
+    {
+        $expiresAt = strtotime($otpRequestedAt) + (30 * 60); // 30 menit
+        return time() > $expiresAt;
+    }
+    // Update user menjadi aktif dan reset otp_code & otp_requested_at menggunakan raw query
+    public function activateUserByIdRaw(int $userId)
+    {
+        $sql = "UPDATE users SET is_active = 1, otp_code = NULL, otp_requested_at = NULL WHERE id = ?";
+        return $this->db->query($sql, [$userId]);
+    }
+
+    // Ambil user yang belum aktif berdasarkan email menggunakan raw query
+    public function getInactiveByEmailRaw(string $email)
+    {
+        $sql = "SELECT * FROM users WHERE email = ? AND is_active = 0 LIMIT 1";
+        $query = $this->db->query($sql, [$email]);
+        return $query->getRowArray();
+    }
+    // Simpan OTP baru ke user berdasarkan email menggunakan raw query
+    public function saveOtpToUserRaw(string $email, string $otp)
+    {
+        $otpRequestedAt = date('Y-m-d H:i:s'); // waktu sekarang
+        $sql = "UPDATE users SET otp_code = ?, otp_requested_at = ? WHERE email = ?";
+        return $this->db->query($sql, [$otp, $otpRequestedAt, $email]);
+    }
+
+    // Validasi OTP dan cek otp_code aktif dan belum expired (30 menit)
+    public function validateOTPRaw(string $email, string $otp): bool
+    {
+        $sql = "SELECT otp_requested_at FROM users WHERE email = ? AND otp_code = ? AND is_active = 1 LIMIT 1";
+        $query = $this->db->query($sql, [$email, $otp]);
+        $row = $query->getRowArray();
+
+        if (!$row) {
+            return false;
+        }
+
+        // Cek apakah OTP sudah expired (30 menit)
+        $expiresAt = strtotime($row['otp_requested_at']) + (30 * 60);
+        if (time() > $expiresAt) {
+            return false;
+        }
+
+        return true;
+    }
+    // Update password_hash berdasarkan email
+    public function updatePasswordByEmailRaw(string $email, string $hash)
+    {
+        $sql = "UPDATE users SET password_hash = ? WHERE email = ? AND is_active = 1";
+        return $this->db->query($sql, [$hash, $email]);
+    }
+    // Hapus otp_code dan otp_requested_at berdasarkan email
+    public function clearOtpByEmailRaw(string $email)
+    {
+        $sql = "UPDATE users SET otp_code = NULL, otp_requested_at = NULL WHERE email = ? AND is_active = 1";
+        return $this->db->query($sql, [$email]);
+    }
+
+    public function insertAuditLogRaw(array $data)
+    {
+        $sql = "INSERT INTO audit_logs (tenant_id, user_id, action, table_name, record_id, change_data, ip_address, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+        return $this->db->query($sql, [
+            $data['tenant_id'], $data['user_id'], $data['action'], $data['table_name'], 
+            $data['record_id'], $data['change_data'], $data['ip_address'], $data['created_at']
+        ]);
+    }
+    public function logLogoutAction($tenantId, $userId, $ipAddress)
+    {
+        $data = [
+            'tenant_id'   => $tenantId,
+            'user_id'     => $userId,
+            'action'      => 'LOGOUT_SUCCESS',
+            'table_name'  => 'users',
+            'record_id'   => $userId,
+            'change_data' => json_encode(['message' => 'User logged out']),
+            'ip_address'  => $ipAddress,
+            'created_at'  => date('Y-m-d H:i:s')
+        ];
+        return $this->insertAuditLogRaw($data);
+    }
+
+    // Batas Bawah Raw Query
+
     public function getUserWithRole($username)
     {
         return $this->select('users.*, roles.name AS role_name, roles.permissions')
@@ -27,7 +147,7 @@ class Mdl_member extends Model
                     ->first();
     }
     
-    public function getUserWithID($uid,$tenant_id,$username){
+    public function getUserWithIDRaw($uid,$tenant_id,$username){
         $sql="SELECT us.*, ro.name AS role_name, ro.permissions
                 FROM users us LEFT JOIN roles ro ON us.role_id=ro.id
                 INNER JOIN tenants te ON us.tenant_id=te.id

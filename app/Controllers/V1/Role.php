@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_role;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class Role extends ResourceController
+class Role extends BaseApiController
 {
     protected $modelName = Mdl_role::class;
     protected $format    = 'json';

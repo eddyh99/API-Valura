@@ -3,12 +3,19 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_currency;
-use CodeIgniter\RESTful\ResourceController;
+use App\Models\Mdl_default_currency;
+use App\Controllers\BaseApiController;
 
-class Currency extends ResourceController
+class Currency extends BaseApiController
 {
     protected $modelName = Mdl_currency::class;
     protected $format    = 'json';
+
+    protected $defaultCurrencyModel;
+    public function __construct()
+    {
+        $this->defaultCurrencyModel = new Mdl_default_currency();
+    }
 
     public function create()
     {
@@ -89,6 +96,20 @@ class Currency extends ResourceController
         return $this->respond([
             'status' => true,
             'data' => $currency
+        ]);
+    }
+
+    // Show Default Currencies
+    public function show_default_currencies()
+    {
+        // Ambil data default currencies dari tabel default_currency
+        $defaultCurrencies = $this->defaultCurrencyModel
+            ->where('is_active', 1)
+            ->findAll();
+
+        return $this->respond([
+            'status' => true,
+            'data' => $defaultCurrencies
         ]);
     }
 }

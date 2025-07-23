@@ -15,4 +15,13 @@ class Mdl_branch extends BaseModel
 
     protected $useTimestamps = false;
     protected $auditEnabled = true;
+
+    // Raw Query
+    public function getBranchIdByName(string $name)
+    {
+        $sql = "SELECT id FROM branches WHERE name = :name: AND is_active = 1";
+        $result = $this->db->query($sql, ['name' => $name])->getRow();
+        return $result ? $result->id : null;
+    }
+    // Batas Bawah Raw Query
 }

@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_branch;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class Branch extends ResourceController
+class Branch extends BaseApiController
 {
     protected $modelName = Mdl_branch::class;
     protected $format    = 'json';

@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_exchange_rate;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class ExchangeRate extends ResourceController
+class ExchangeRate extends BaseApiController
 {
     protected $modelName = Mdl_exchange_rate::class;
     protected $format    = 'json';

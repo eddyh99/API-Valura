@@ -3,9 +3,9 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_client;
-use CodeIgniter\RESTful\ResourceController;
+use App\Controllers\BaseApiController;
 
-class Client extends ResourceController
+class Client extends BaseApiController
 {
     protected $modelName = Mdl_client::class;
     protected $format    = 'json';
