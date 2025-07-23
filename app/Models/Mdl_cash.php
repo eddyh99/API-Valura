@@ -24,4 +24,15 @@ class Mdl_cash extends BaseModel
 
     protected $useTimestamps = false;
     protected $auditEnabled = true;
+
+    public function getTodayCashByBranch($branchId)
+    {
+        $sql = "SELECT * 
+                FROM cash_movements 
+                WHERE branch_id = ? 
+                AND is_active = 1 
+                AND DATE(occurred_at) = CURDATE()";
+
+        return $this->db->query($sql, [$branchId])->getResultArray();
+    }
 }

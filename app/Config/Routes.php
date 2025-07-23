@@ -88,8 +88,10 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
 
 // Transaction
 $routes->group('', ['filter' => 'authApi'], function($routes) {
+    $routes->get('transaction/(:num)', 'V1\Transaction::showTransaction_ByID/$1');
     $routes->post('transaction', 'V1\Transaction::create');
-
+    $routes->put('transaction/(:num)', 'V1\Transaction::update/$1');
+    $routes->delete('transaction/(:num)', 'V1\Transaction::delete/$1');
     $routes->post('transaction/daily', 'V1\Transaction::dailyReport');
 });
 

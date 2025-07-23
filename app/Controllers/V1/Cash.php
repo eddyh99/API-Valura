@@ -104,22 +104,37 @@ class Cash extends BaseApiController
         ]);
     }
 
+    // public function showCash_ByBranchID($id = null)
+    // {
+    //     $branchId = auth_branch_id();
+
+    //     $cash = $this->model
+    //         ->where('branch_id', $id)
+    //         ->where('is_active', 1)
+    //         ->first();
+
+    //     if (!$cash) {
+    //         return $this->failNotFound('Branch tidak ditemukan atau sudah dihapus.');
+    //     }
+
+    //     return $this->respond([
+    //         'status' => true,
+    //         'data' => $cash
+    //     ]);
+    // }
     public function showCash_ByBranchID($id = null)
     {
-        $branchId = auth_branch_id();
+        $branchId = auth_branch_id(); 
 
-        $cash = $this->model
-            ->where('branch_id', $id)
-            ->where('is_active', 1)
-            ->first();
+        $data = $this->model->getTodayCashByBranch($id);
 
-        if (!$cash) {
-            return $this->failNotFound('Branch tidak ditemukan atau sudah dihapus.');
+        if (empty($data)) {
+            return $this->failNotFound('Tidak ada kas yang ditemukan untuk hari ini.');
         }
 
         return $this->respond([
             'status' => true,
-            'data' => $cash
+            'data'   => $data 
         ]);
     }
 }
