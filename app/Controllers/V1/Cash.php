@@ -14,12 +14,17 @@ class Cash extends BaseApiController
     {
         $data = $this->request->getJSON(true);
 
+        // Jika tidak ada 'occurred_at' di request, set ke tanggal & waktu sekarang
+        if (empty($data['occurred_at'])) {
+            $data['occurred_at'] = date('Y-m-d H:i:s');
+        }
+
         // Set data tambahan
         $data['tenant_id']  = auth_tenant_id();
         $data['created_by'] = auth_user_id();
         $data['is_active']  = 1;
 
-        // Validasi movement_type harus IN atau OUT
+        // Validasi movement_type harus IN, OUT, atau AWAL
         if (!in_array($data['movement_type'] ?? '', ['IN', 'OUT', 'AWAL'])) {
             return $this->failValidationErrors(['movement_type' => 'Movement type harus IN/OUT/AWAL']);
         }
@@ -41,9 +46,16 @@ class Cash extends BaseApiController
             return $this->failNotFound('Cash tidak ditemukan atau sudah dihapus');
         }
 
+        // Cek apakah tanggal occurred_at sama dengan tanggal hari ini
+        $today = date('Y-m-d');
+        $occurredDate = date('Y-m-d', strtotime($cash['occurred_at']));
+        if ($occurredDate !== $today) {
+            return $this->fail('Hanya bisa Update Cash di tanggal sekarang: ' . $today);
+        }
+
         // Validasi movement_type jika ada
-        if (isset($data['movement_type']) && !in_array($data['movement_type'], ['IN', 'OUT'])) {
-            return $this->failValidationErrors(['movement_type' => 'Movement type harus IN atau OUT']);
+        if (isset($data['movement_type']) && !in_array($data['movement_type'], ['IN', 'OUT', 'AWAL'])) {
+            return $this->failValidationErrors(['movement_type' => 'Movement type harus IN, OUT, atau AWAL']);
         }
 
         if (!$this->model->update($id, $data)) {
@@ -55,13 +67,20 @@ class Cash extends BaseApiController
 
     public function delete($id = null)
     {
+        // Cek data cash aktif
         $cash = $this->model->where('id', $id)->where('is_active', 1)->first();
-
         if (!$cash) {
             return $this->failNotFound('Cash tidak ditemukan atau sudah dihapus');
         }
 
-        // Soft delete set is_active=0
+        // Cek apakah tanggal occurred_at sama dengan tanggal hari ini
+        $today = date('Y-m-d');
+        $occurredDate = date('Y-m-d', strtotime($cash['occurred_at']));
+        if ($occurredDate !== $today) {
+            return $this->fail('Hanya bisa Delete Cash di tanggal sekarang: ' . $today);
+        }
+
+        // Soft delete: set is_active = 0
         if (!$this->model->update($id, ['is_active' => 0])) {
             return $this->failServerError('Gagal melakukan soft delete');
         }
@@ -72,14 +91,24 @@ class Cash extends BaseApiController
     public function show_all_cashes()
     {
         $tenantId = auth_tenant_id();
+        $branchId = auth_branch_id();
+
+        // Dapatkan awal dan akhir hari ini dalam format datetime
+        $startOfDay = date('Y-m-d 00:00:00');
+        $endOfDay   = date('Y-m-d 23:59:59');
 
         $cashes = $this->model
             ->where('is_active', 1)
             ->where('tenant_id', $tenantId)
+            ->where('branch_id', $branchId)
+            // Filter berdasarkan occurred_at di rentang hari ini
+            ->where('occurred_at >=', $startOfDay)
+            ->where('occurred_at <=', $endOfDay)
             ->findAll();
 
         return $this->respond([
             'status' => true,
+            'today'  => date('Y-m-d'),
             'data' => $cashes
         ]);
     }
@@ -104,24 +133,6 @@ class Cash extends BaseApiController
         ]);
     }
 
-    // public function showCash_ByBranchID($id = null)
-    // {
-    //     $branchId = auth_branch_id();
-
-    //     $cash = $this->model
-    //         ->where('branch_id', $id)
-    //         ->where('is_active', 1)
-    //         ->first();
-
-    //     if (!$cash) {
-    //         return $this->failNotFound('Branch tidak ditemukan atau sudah dihapus.');
-    //     }
-
-    //     return $this->respond([
-    //         'status' => true,
-    //         'data' => $cash
-    //     ]);
-    // }
     public function showCash_ByBranchID($id = null)
     {
         $branchId = auth_branch_id(); 

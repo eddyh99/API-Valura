@@ -14,9 +14,31 @@ class Branch extends BaseApiController
     {
         $data = $this->request->getJSON(true);
 
-        $data['tenant_id']   = auth_tenant_id();
-        $data['created_by']  = auth_user_id();
-        $data['is_active']   = 1;
+        $tenantId = auth_tenant_id();
+
+        // Load model tenant untuk cek max_branch
+        $mdlTenant = new \App\Models\Mdl_tenant();
+        $tenant = $mdlTenant->find($tenantId);
+
+        if (!$tenant) {
+            return $this->failNotFound('Tenant tidak ditemukan.');
+        }
+
+        $maxBranch = (int) $tenant['max_branch'];
+
+        // Hitung jumlah branch aktif tenant ini
+        $currentBranchCount = $this->model
+            ->where('tenant_id', $tenantId)
+            ->where('is_active', 1)
+            ->countAllResults();
+
+        if ($currentBranchCount >= $maxBranch) {
+            return $this->failForbidden("MAX BRANCH: User dengan Tenant ID {$tenantId} hanya bisa menambahkan {$maxBranch} cabang saja.");
+        }
+
+        $data['tenant_id']  = $tenantId;
+        $data['created_by'] = auth_user_id();
+        $data['is_active']  = 1;
 
         if (!$this->model->insert($data)) {
             return $this->failValidationErrors($this->model->errors());
@@ -61,14 +83,29 @@ class Branch extends BaseApiController
     {
         $tenantId = auth_tenant_id();
 
+        // Ambil semua cabang aktif milik tenant ini
         $branches = $this->model
             ->where('is_active', 1)
             ->where('tenant_id', $tenantId)
             ->findAll();
 
+        // Ambil data tenant max_branch dari model tenant
+        $mdlTenant = new \App\Models\Mdl_tenant();
+        $tenant = $mdlTenant->find($tenantId);
+
+        $maxBranch = 0;
+        if ($tenant && isset($tenant['max_branch'])) {
+            $maxBranch = (int) $tenant['max_branch'];
+        }
+
+        // Hitung jumlah cabang aktif saat ini
+        $currentBranchCount = count($branches);
+
         return $this->respond([
             'status' => true,
-            'data' => $branches
+            'data' => $branches,
+            'max_branch' => $maxBranch,
+            'current_branch_count' => $currentBranchCount
         ]);
     }
 

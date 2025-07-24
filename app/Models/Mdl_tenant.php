@@ -7,7 +7,7 @@ class Mdl_tenant extends Model
 {
     protected $table            = 'tenants';
     protected $primaryKey       = 'id';
-    protected $allowedFields    = ['name', 'subdomain', 'custom_domain', 'logo_url', 'config_json', 'is_active', 'created_at', 'updated_at'];
+    protected $allowedFields    = ['name', 'subdomain', 'custom_domain', 'logo_url', 'config_json', 'max_branch', 'is_active', 'created_at', 'updated_at'];
     protected $useTimestamps    = false;
 
     // Raw Query
@@ -36,7 +36,7 @@ class Mdl_tenant extends Model
         return false;
     }
     // Batas Raw Query
-
+    
     public function insertTenant($tenantName)
     {
         $data = [
