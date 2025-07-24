@@ -29,18 +29,10 @@ class Transaction extends BaseApiController
 
         // 1. Ambil data transaksi utama
         $transaction = $this->transactionModel->getTransactionByIdRaw($tenantId, $id);
-        if (!$transaction) {
-            return $this->failNotFound("Transaksi dengan ID $id tidak ditemukan.");
-        }
-
-        // 2. Ambil data lines (berdasarkan tipe transaksi BUY/SELL)
-        $lines = $this->lineModel->getTransactionLinesByTransactionIdRaw($tenantId, $id, $transaction['transaction_type']);
 
         return $this->respond([
             'status' => true,
-            'transaction_id' => (int) $id,
-            'transaction_type' => $transaction['transaction_type'],
-            'currencies' => $lines
+            'transaction' => $transaction
         ]);
     }
 
@@ -55,32 +47,27 @@ class Transaction extends BaseApiController
         $transactionType  = strtoupper($data['transaction_type'] ?? '');
         $transactionDate  = $data['transaction_date'] ?? date('Y-m-d');
 
-        // 1. SIMPAN CLIENT (dengan cek ID Number)
-        $clientId = $this->clientModel->insertClientIfNotExistRaw($tenantId, $data);
-
-        // 2. SIMPAN TRANSAKSI
-        $transactionId = $this->transactionModel->insertTransactionRaw(
-            $tenantId,
-            $branchId,
-            $clientId,
-            $data,
-            $userId,
-            $transactionDate,
-            $transactionType
+        $client = $data["client"];
+        $client["tenant_id"] =  $tenantId;
+        
+        $transaksi = array(
+            "transaction_type"  => $transactionType,
+            "branch_id"         => $branchId,
+            "tenant_id"         => $tenantId,
+            "transaction_date"  => date("Y-m-d H:i:s"),
+            "created_by"        => $userId,
+            "created_at"        => date("Y-m-d H:i:s")
         );
-
-        // 3. SIMPAN CURRENCY LINEs
-        $this->lineModel->insertLinesRaw(
-            $transactionId,
-            $transactionType,
-            $data['currencies'],
-            $tenantId
-        );
-
-        return $this->respondCreated([
-            'message'        => 'Transaksi berhasil disimpan',
-            'transaction_id' => $transactionId
-        ]);
+        
+        $transactionId= $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
+        if (!$transactionId){
+             return $this->failNotFound('Transaksi gagal di tambahkan');
+        }else{
+            return $this->respondCreated([
+                'message'        => 'Transaksi berhasil disimpan',
+                'transaction_id' => $transactionId
+            ]);
+        }
     }
 
     public function update($id = null)
