@@ -10,6 +10,32 @@ class ExchangeRate extends BaseApiController
     protected $modelName = Mdl_exchange_rate::class;
     protected $format    = 'json';
 
+    // Show All Exchange Rates
+    public function show_all_exchangeRates()
+    {
+        $tenantId = auth_tenant_id();
+
+        $exchange_rates = $this->model->getAllExchangeRatesRaw($tenantId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $exchange_rates
+        ]);
+    }
+
+    // Show Exchange Rate by ID
+    public function showExchangeRate_ByID($id = null)
+    {
+        $tenantId = auth_tenant_id();
+
+        $exchange_rate = $this->model->getExchangeRateByIdRaw($tenantId, $id);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $exchange_rate
+        ]);
+    }
+
     public function create()
     {
         $data = $this->request->getJSON(true);
@@ -54,42 +80,5 @@ class ExchangeRate extends BaseApiController
         }
 
         return $this->respondDeleted(['message' => 'Exchange rate berhasil di-nonaktifkan']);
-    }
-
-    // Show All Exchange Rates
-    public function show_all_exchangeRates()
-    {
-        $tenantId = auth_tenant_id();
-
-        $exchange_rates = $this->model
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->findAll();
-
-        return $this->respond([
-            'status' => true,
-            'data' => $exchange_rates
-        ]);
-    }
-
-    // Show Exchange Rate by ID
-    public function showExchangeRate_ByID($id = null)
-    {
-        $tenantId = auth_tenant_id();
-
-        $exchange_rate = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->first();
-
-        if (!$exchange_rate) {
-            return $this->failNotFound('Exchange rate tidak ditemukan atau sudah dihapus.');
-        }
-
-        return $this->respond([
-            'status' => true,
-            'data' => $exchange_rate
-        ]);
     }
 }

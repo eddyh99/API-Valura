@@ -25,7 +25,47 @@ class Mdl_client extends BaseModel
     protected $useTimestamps = false;
     protected $auditEnabled  = true;
 
-    // Raw Query
+    public function getAllClientsRaw($tenantId)
+    {
+        $sql = "SELECT 
+                    id,
+                    tenant_id,
+                    name,
+                    id_type,
+                    id_number,
+                    country,
+                    phone,
+                    is_active
+                FROM clients
+                WHERE tenant_id = ? AND is_active = 1
+                ORDER BY id ASC";
+
+        return $this->db->query($sql, [$tenantId])->getResultArray();
+    }
+
+    // public function getClientByIdRaw($tenantId, $currencyId)
+    // {
+    //     $sql = "SELECT 
+    //                 name,
+    //                 country,
+    //                 id_type,
+    //                 phone,
+    //             FROM clients
+    //             WHERE id = ? AND tenant_id = ? AND is_active = 1
+    //             LIMIT 1";
+
+    //     return $this->db->query($sql, [$currencyId, $tenantId])->getRowArray();
+    // }
+        public function getClientByIdRaw($tenantId, $currencyId)
+    {
+        $sql = "SELECT *
+                FROM clients
+                WHERE id = ? AND tenant_id = ? AND is_active = 1
+                LIMIT 1";
+
+        return $this->db->query($sql, [$currencyId, $tenantId])->getRowArray();
+    }
+
     public function getClientByIdNumberRaw($idNumber)
     {
         $sql = "SELECT * FROM clients WHERE id_number = ? LIMIT 1";
@@ -48,28 +88,6 @@ class Mdl_client extends BaseModel
         return $this->db->insertID();
     }
 
-    // public function insertClientIfNotExistRaw($tenantId, $data)
-    // {
-    //     $sql = "SELECT id FROM clients WHERE tenant_id = ? AND id_number = ? LIMIT 1";
-    //     $row = $this->db->query($sql, [$tenantId, $data['id_number']])->getRow();
-
-    //     if ($row) {
-    //         return $row->id;
-    //     }
-
-    //     $insert = "INSERT INTO clients (tenant_id, name, id_type, id_number, address, job, created_at)
-    //             VALUES (?, ?, ?, ?, ?, ?, NOW())";
-    //     $this->db->query($insert, [
-    //         $tenantId,
-    //         $data['name'] ?? '',
-    //         $data['id_type'] ?? '',
-    //         $data['id_number'] ?? '',
-    //         $data['address'] ?? '',
-    //         $data['job'] ?? ''
-    //     ]);
-
-    //     return $this->db->insertID();
-    // }
     public function insertClientIfNotExistRaw($data)
     {
         // Build the insert SQL with duplicate handling
@@ -113,6 +131,4 @@ class Mdl_client extends BaseModel
     
         return $existing['id'] ?? null;
     }
-
-    // Batas Bawah Raw Query
 }

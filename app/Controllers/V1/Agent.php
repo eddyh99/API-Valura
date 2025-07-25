@@ -10,6 +10,30 @@ class Agent extends BaseApiController
     protected $modelName = Mdl_agent::class;
     protected $format    = 'json';
 
+    public function show_all_agents()
+    {
+        $tenantId = auth_tenant_id();
+
+        $agents = $this->model->getAllAgentsRaw($tenantId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $agents
+        ]);
+    }
+
+    public function showAgent_ByID($id = null)
+    {
+        $tenantId = auth_tenant_id();
+
+        $agent = $this->model->getAgentByIdRaw($tenantId, $id);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $agent
+        ]);
+    }
+
     public function create()
     {
         $data = $this->request->getJSON(true);
@@ -75,40 +99,5 @@ class Agent extends BaseApiController
         }
 
         return $this->respondDeleted(['message' => 'Agent berhasil di-nonaktifkan']);
-    }
-
-    public function show_all_agents()
-    {
-        $tenantId = auth_tenant_id();
-
-        $agents = $this->model
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->findAll();
-
-        return $this->respond([
-            'status' => true,
-            'data' => $agents
-        ]);
-    }
-
-    public function showAgent_ByID($id = null)
-    {
-        $tenantId = auth_tenant_id();
-
-        $agent = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->first();
-
-        if (!$agent) {
-            return $this->failNotFound('Agent tidak ditemukan atau sudah dihapus.');
-        }
-
-        return $this->respond([
-            'status' => true,
-            'data' => $agent
-        ]);
     }
 }

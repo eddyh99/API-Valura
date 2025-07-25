@@ -37,7 +37,7 @@ class Bank extends BaseApiController
             'data' => $bank
         ]);
     }
-
+    
     public function create()
     {
         $data = $this->request->getJSON(true);
@@ -49,15 +49,15 @@ class Bank extends BaseApiController
 
         $rules = [
             'name'       => 'required|string|max_length[100]',
-            'account_no' => 'permit_empty|string|max_length[50]',
-            'branch'     => 'permit_empty|string|max_length[100]',
+            'account_no' => 'required|string|max_length[50]',
+            'branch'     => 'required|string|max_length[100]',
         ];
 
         if (! $this->validate($rules)) {
             return $this->failValidationErrors($this->validator->getErrors());
         }
 
-        if (!$this->model->insert($data)) {
+        if (!$this->model->insertBankRaw($data)) {
             return $this->failServerError('Gagal menambahkan data bank.');
         }
 
@@ -68,17 +68,13 @@ class Bank extends BaseApiController
     {
         $data = $this->request->getJSON(true);
 
-        $bank = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->first();
-
+        $bank = $this->model->getActiveBankByIdRaw($id);
         if (!$bank) {
             return $this->failNotFound('Bank tidak ditemukan atau sudah dihapus');
         }
 
         $rules = [
-            'name'       => 'required|string|max_length[100]',
+            'name'       => 'permit_empty|string|max_length[100]',
             'account_no' => 'permit_empty|string|max_length[50]',
             'branch'     => 'permit_empty|string|max_length[100]',
         ];
@@ -90,7 +86,7 @@ class Bank extends BaseApiController
         $data['updated_by'] = auth_user_id();
         $data['updated_at'] = date('Y-m-d H:i:s');
 
-        if (!$this->model->update($id, $data)) {
+        if (!$this->model->updateBankRaw($id, $data)) {
             return $this->failServerError('Gagal mengupdate data bank.');
         }
 
@@ -99,14 +95,12 @@ class Bank extends BaseApiController
 
     public function delete($id = null)
     {
-        $bank = $this->model->where('id', $id)->where('is_active', 1)->first();
-
+        $bank = $this->model->getActiveBankByIdRaw($id);
         if (!$bank) {
             return $this->failNotFound('Bank tidak ditemukan atau sudah dihapus');
         }
 
-        // Soft delete set is_active=0
-        if (!$this->model->update($id, ['is_active' => 0])) {
+        if (!$this->model->softDeleteBankRaw($id)) {
             return $this->failServerError('Gagal melakukan soft delete');
         }
 
