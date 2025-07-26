@@ -30,6 +30,7 @@ class Mdl_transaction extends BaseModel
                     tr.id AS transaction_id,
                     tr.tenant_id,
                     tr.transaction_type,
+                    tr.transaction_date,
 
                     CONCAT('[', GROUP_CONCAT(
                         JSON_OBJECT(
@@ -54,6 +55,12 @@ class Mdl_transaction extends BaseModel
     }
 
     // Create
+    private $reusedIdempotency = false;
+    public function isIdempotencyKeyReused(): bool
+    {
+        return $this->reusedIdempotency;
+    }
+
     public function insertTransactionRaw(array $data, array $clientData, array $detail)
     {
         $this->db->transStart();
@@ -63,22 +70,47 @@ class Mdl_transaction extends BaseModel
             $clientId = $this->clients->insertClientIfNotExistRaw($clientData);
             $data['client_id'] = $clientId;
     
-            // 2. Insert transaction
+            // 2. Cek apakah idempotency_key sudah ada (Raw Query)
+            if (!empty($data['idempotency_key'])) {
+                $checkSql = "SELECT id FROM transactions WHERE tenant_id = ? AND idempotency_key = ?";
+                $existing = $this->db->query($checkSql, [$data['tenant_id'], $data['idempotency_key']])->getRowArray();
+
+                if ($existing && isset($existing['id'])) {
+                    // Sudah pernah di-insert, return ID yang lama
+                    $this->reusedIdempotency = true; // ✅ Tandai kalau reused
+                    return $existing['id'];
+                }
+            }
+            // 2. Cek apakah idempotency_key sudah ada (Query Builder)
+            // if (!empty($data['idempotency_key'])) {
+            //     $existing = $this->db->table($this->table)
+            //         ->select('id')
+            //         ->where('tenant_id', $data['tenant_id'])
+            //         ->where('idempotency_key', $data['idempotency_key'])
+            //         ->get()
+            //         ->getRowArray();
+
+            //     if ($existing && isset($existing['id'])) {
+            //         $this->reusedIdempotency = true; // ✅ Tandai kalau reused
+            //         return $existing['id'];
+            //     }
+            // }
+
+            // 3. Insert transaction
             $this->db->table($this->table)->insert($data);
             $transactionId = $this->db->insertID();
     
-            // 3. Make sure $detail is an array of arrays
+            // 4. Make sure $detail is an array of arrays
             if (!isset($detail[0]) || !is_array($detail[0])) {
                 $detail = [$detail]; // wrap if it's a single row
             }
 
-            // 4. Add transaction_id to each detail row
+            // 5. Add transaction_id to each detail row
             foreach ($detail as &$row) {
                 $row['transaction_id'] = $transactionId;
             }
 
-    
-            // 4. Batch insert lines
+            // 6. Batch insert lines
             $this->db->table('transaction_lines')->insertBatch($detail);
     
             $this->db->transComplete();
@@ -96,34 +128,133 @@ class Mdl_transaction extends BaseModel
             return false;
         }
     }
-    
 
-    // Update
-    public function getTransactionToUpdateByIdRaw($transactionId)
+    // Update (Only Today)
+    public function updateTransactionLinesTodayOnly($transactionId, $tenantId, array $newLines)
     {
-        $sql = "SELECT id, transaction_type FROM transactions WHERE id = ?";
-        $row = $this->db->query($sql, [$transactionId])->getRowArray();
-        return $row;
+        $this->db->transStart();
+
+        // Cek transaksi valid dan tanggal hari ini
+        $sql = "SELECT id FROM {$this->table} 
+                WHERE id = ? AND tenant_id = ? AND DATE(transaction_date) = CURDATE()";
+
+        $exists = $this->db->query($sql, [$transactionId, $tenantId])->getRowArray();
+        if (!$exists) {
+            return false;
+        }
+
+        try {
+            // 1. Hapus lines lama
+            $this->db->table('transaction_lines')
+                    ->where('transaction_id', $transactionId)
+                    ->delete();
+
+            // 2. Tambah transaction_id ke tiap baris baru
+            foreach ($newLines as &$line) {
+                $line['transaction_id'] = $transactionId;
+            }
+
+            // 3. Insert batch lines baru
+            $this->db->table('transaction_lines')->insertBatch($newLines);
+
+            $this->db->transComplete();
+
+            return $this->db->transStatus();
+        } catch (\Throwable $e) {
+            $this->db->transRollback();
+            log_message('error', 'Update lines failed: ' . $e->getMessage());
+            return false;
+        }
     }
-    public function getTransactionById($id)
+    // Update tanpa hapus lines lama
+    // public function updateTransactionLinesTodayOnly($transactionId, $tenantId, array $newLines)
+    // {
+    //     $this->db->transStart();
+
+    //     // Pastikan transaksi milik tenant dan dibuat hari ini
+    //     $sql = "SELECT id FROM {$this->table}
+    //             WHERE id = ? AND tenant_id = ? AND DATE(transaction_date) = CURDATE()";
+    //     $exists = $this->db->query($sql, [$transactionId, $tenantId])->getRowArray();
+
+    //     if (!$exists) {
+    //         return false;
+    //     }
+
+    //     try {
+    //         // Ambil semua line ID lama milik transaksi ini
+    //         $oldLines = $this->db->table('transaction_lines')
+    //                             ->select('id')
+    //                             ->where('transaction_id', $transactionId)
+    //                             ->get()
+    //                             ->getResultArray();
+
+    //         $oldIds = array_column($oldLines, 'id'); // misal [1, 2, 3]
+    //         $incomingIds = [];
+
+    //         foreach ($newLines as $line) {
+    //             $line['transaction_id'] = $transactionId;
+
+    //             if (!empty($line['id'])) {
+    //                 // Simpan id yang dikirim user
+    //                 $incomingIds[] = $line['id'];
+
+    //                 // Update baris existing
+    //                 $updateData = $line;
+    //                 $id = $updateData['id'];
+    //                 unset($updateData['id']); // jangan update kolom id
+
+    //                 $this->db->table('transaction_lines')
+    //                         ->where('id', $id)
+    //                         ->where('transaction_id', $transactionId) // tambahan safety
+    //                         ->update($updateData);
+    //             } else {
+    //                 // Insert baru (karena tidak ada id)
+    //                 $this->db->table('transaction_lines')->insert($line);
+    //             }
+    //         }
+
+    //         // Hapus lines yang lama tapi tidak dikirim ulang oleh user
+    //         if (!empty($oldIds)) {
+    //             $idsToDelete = array_diff($oldIds, $incomingIds);
+    //             if (!empty($idsToDelete)) {
+    //                 $this->db->table('transaction_lines')
+    //                         ->where('transaction_id', $transactionId)
+    //                         ->whereIn('id', $idsToDelete)
+    //                         ->delete();
+    //             }
+    //         }
+
+    //         $this->db->transComplete();
+    //         return $this->db->transStatus();
+    //     } catch (\Throwable $e) {
+    //         $this->db->transRollback();
+    //         log_message('error', 'Update lines (tanpa delete total) gagal: ' . $e->getMessage());
+    //         return false;
+    //     }
+    // }
+
+    // Delete (Only Today)
+    public function deleteTransactionTodayOnly($id, $tenantId)
     {
-        $sql = "SELECT id, tenant_id, transaction_type 
-                FROM transactions 
-                WHERE id = ? 
-                LIMIT 1";
+        // Cek dulu apakah data ada dan tanggalnya hari ini
+        $sql = "SELECT id FROM {$this->table}
+                WHERE id = ? AND tenant_id = ? AND DATE(transaction_date) = CURDATE()";
 
-        $query = $this->db->query($sql, [$id]);
-        return $query->getRowArray();
-    }
+        $found = $this->db->query($sql, [$id, $tenantId])->getRowArray();
 
-    // Delete
-    public function deleteTransactionById($transactionId, $tenantId)
-    {
-        $sql = "DELETE FROM transactions 
-                WHERE id = ? AND tenant_id = ?";
+        if (!$found) {
+            return false; // Tidak ditemukan atau bukan transaksi hari ini
+        }
 
-        $this->db->query($sql, [$transactionId, $tenantId]);
+        // Hapus transaction_lines dulu biar ga orphaned
+        $this->db->table('transaction_lines')
+                ->where('transaction_id', $id)
+                ->delete();
 
-        return $this->db->affectedRows() > 0;
+        // Lalu hapus transaksi utama
+        return $this->db->table($this->table)
+                        ->where('id', $id)
+                        ->where('tenant_id', $tenantId)
+                        ->delete();
     }
 }

@@ -19,4 +19,87 @@ class Mdl_bank extends BaseModel
 
     protected $useTimestamps = false;
     protected $auditEnabled  = true;
+
+    public function getAllBanksRaw($tenantId)
+    {
+        $sql = "SELECT 
+                    id,
+                    tenant_id,
+                    name,
+                    account_no,
+                    branch,
+                    is_active
+                FROM banks
+                WHERE tenant_id = ? AND is_active = 1
+                ORDER BY name ASC";
+
+        return $this->db->query($sql, [$tenantId])->getResultArray();
+    }
+
+    // public function getBankById($tenantId, $id)
+    // {
+    //     return $this->where('id', $id)
+    //                 ->where('is_active', 1)
+    //                 ->where('tenant_id', $tenantId)
+    //                 ->first();
+    // }
+    public function getBankByIdRaw($tenantId, $bankId)
+    {
+        $sql = "SELECT 
+                    id,
+                    tenant_id,
+                    name,
+                    account_no,
+                    branch,
+                    is_active
+                FROM banks
+                WHERE id = ? AND tenant_id = ? AND is_active = 1
+                LIMIT 1";
+
+        return $this->db->query($sql, [$bankId, $tenantId])->getRowArray();
+    }
+
+    // public function insertBankRaw(array $data)
+    // {
+    //     $sql = "INSERT INTO banks (tenant_id, name, account_no, branch, is_active, created_by)
+    //             VALUES (?, ?, ?, ?, ?, ?)";
+
+    //     return $this->db->query($sql, [
+    //         $data['tenant_id'],
+    //         $data['name'],
+    //         $data['account_no'] ?? null,
+    //         $data['branch'] ?? null,
+    //         $data['is_active'],
+    //         $data['created_by']
+    //     ]);
+    // }
+
+    // public function updateBankRaw($id, array $data)
+    // {
+    //     $sql = "UPDATE banks SET 
+    //                 name = ?, 
+    //                 account_no = ?, 
+    //                 branch = ?
+    //             WHERE id = ? AND is_active = 1";
+
+    //     return $this->db->query($sql, [
+    //         $data['name'],
+    //         $data['account_no'] ?? null,
+    //         $data['branch'] ?? null,
+    //         $id
+    //     ]);
+    // }
+
+    // public function softDeleteBankRaw($id)
+    // {
+    //     $sql = "UPDATE banks SET is_active = 0 WHERE id = ? AND is_active = 1";
+
+    //     return $this->db->query($sql, [$id]);
+    // }
+
+    // public function getActiveBankByIdRaw($id)
+    // {
+    //     $sql = "SELECT * FROM banks WHERE id = ? AND is_active = 1";
+    //     return $this->db->query($sql, [$id])->getRowArray();
+    // }
 }

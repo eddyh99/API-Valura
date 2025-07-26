@@ -3,7 +3,7 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_transaction;
-
+use App\Models\Mdl_transaction_line;
 use App\Models\Mdl_client;
 use App\Models\Mdl_branch;
 use App\Controllers\BaseApiController;
@@ -18,7 +18,7 @@ class Transaction extends BaseApiController
     public function __construct()
     {
         $this->transactionModel = new Mdl_transaction();
-
+        $this->lineModel        = new Mdl_transaction_line();
         $this->clientModel      = new Mdl_client();
     }
 
@@ -61,29 +61,12 @@ class Transaction extends BaseApiController
         );
         
         $transactionId= $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
-
         if (!$transactionId){
              return $this->failNotFound('Transaksi gagal di tambahkan');
-        }
-
-        // Cek apakah ID dari transaksi tersebut didapat dari reuse idempotency (bukan insert baru)
-        $reused = false;
-
-        if (!empty($data['idempotency_key'])) {
-            $reused = $this->transactionModel->isIdempotencyKeyReused();
-        }
-
-        if ($reused) {
-            return $this->respond([
-                'message'         => 'Transaksi sudah pernah dilakukan',
-                'transaction_id'  => $transactionId,
-                'idemp_key'       => $data['idempotency_key']
-            ]);
-        } else {
+        }else{
             return $this->respondCreated([
-                'message'         => 'Transaksi baru berhasil disimpan',
-                'transaction_id'  => $transactionId,
-                'idemp_key'       => $data['idempotency_key']
+                'message'        => 'Transaksi berhasil disimpan',
+                'transaction_id' => $transactionId
             ]);
         }
     }
@@ -93,40 +76,28 @@ class Transaction extends BaseApiController
         $json = $this->request->getJSON(true);
 
         try {
-            // 1. Ambil transaksi
-            $tenantId = auth_tenant_id();
-            $trx = $this->transactionModel->getTransactionByIdRaw($tenantId, $id);
+            // 1. Ambil data transaksi untuk cek type (BUY/SELL)
+            $trx = $this->transactionModel->getTransactionById($id);
             if (!$trx) {
                 return $this->failNotFound("Transaksi ID $id tidak ditemukan");
             }
 
-            // 2. Cek apakah transaksi dari tanggal hari ini
-            $trxDate = date('Y-m-d', strtotime($trx['transaction_date']));
-            if ($trxDate !== date('Y-m-d')) {
-                return $this->failValidationErrors("Transaksi hanya bisa diubah pada hari yang sama saat dibuat");
+            $transactionType = strtoupper($trx['transaction_type']);
+            $tenantId        = $trx['tenant_id'];
+
+            // 2. Ambil array currencies
+            $currencies = $json['currencies'] ?? [];
+
+            if (!is_array($currencies) || count($currencies) === 0) {
+                return $this->failValidationErrors('Data currencies tidak boleh kosong dan harus berupa array');
             }
 
-            // 3. Validasi lines
-            $lines = $json['lines'] ?? [];
-            if (!is_array($lines) || count($lines) === 0) {
-                return $this->failValidationErrors('Data lines tidak boleh kosong dan harus berupa array');
-            }
-
-            // Normalize jika single object
-            if (isset($lines['currency_id'])) {
-                $lines = [$lines];
-            }
-
-            // 4. Update langsung via transactionModel
-            $success = $this->transactionModel->updateTransactionLinesTodayOnly($id, $tenantId, $lines);
-
-            if (!$success) {
-                return $this->fail('Gagal memperbarui transaksi. Pastikan data valid dan milik tenant Anda.');
-            }
+            // 3. Update ke tabel transaction_lines
+            $this->lineModel->updateLinesRaw($id, $transactionType, $currencies, $tenantId);
 
             return $this->respond([
-                'message'        => 'Transaksi berhasil diperbarui',
-                'transaction_id' => $id
+                'message'         => 'Transaksi berhasil diperbarui',
+                'transaction_id'  => $id
             ]);
         } catch (\Throwable $e) {
             return $this->failServerError('Gagal update transaksi: ' . $e->getMessage());
@@ -139,19 +110,22 @@ class Transaction extends BaseApiController
             return $this->failValidationErrors(['id' => 'Invalid or missing transaction ID']);
         }
 
-        $tenantId = auth_tenant_id();
+        $tenantId = auth_tenant_id(); // pastikan data hanya milik tenant ini
 
         try {
-            // Hapus hanya jika transaksi milik tenant dan tanggalnya hari ini
-            $deleted = $this->transactionModel->deleteTransactionTodayOnly($id, $tenantId);
+            // Hapus detail (transaction_lines)
+            $this->lineModel->deleteLinesByTransactionId($id, $tenantId);
+
+            // Hapus transaksi utama
+            $deleted = $this->transactionModel->deleteTransactionById($id, $tenantId);
 
             if (!$deleted) {
-                return $this->failNotFound('Transaksi tidak ditemukan, bukan milik Anda, atau bukan dari hari ini');
+                return $this->failNotFound('Transaksi tidak ditemukan atau bukan milik tenant Anda');
             }
 
             return $this->respondDeleted([
-                'message'        => 'Transaksi berhasil dihapus (permanen)',
-                'transaction_id' => (int) $id
+                'message'         => 'Transaksi berhasil dihapus (permanen)',
+                'transaction_id'  => (int) $id
             ]);
         } catch (\Throwable $e) {
             return $this->failServerError('Gagal menghapus transaksi: ' . $e->getMessage());

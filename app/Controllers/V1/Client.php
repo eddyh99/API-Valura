@@ -10,6 +10,30 @@ class Client extends BaseApiController
     protected $modelName = Mdl_client::class;
     protected $format    = 'json';
 
+    public function show_all_clients()
+    {
+        $tenantId = auth_tenant_id();
+        
+        $clients = $this->model->getAllClientsRaw($tenantId);
+
+        return $this->respond([
+            'status' => true,
+            'data'   => $clients
+        ]);
+    }
+
+    public function showClient_ByID($id = null)
+    {
+        $tenantId = auth_tenant_id();
+
+        $client = $this->model->getClientByIdRaw($tenantId, $id);
+
+        return $this->respond([
+            'status' => true,
+            'data'   => $client
+        ]);
+    }
+
     public function create()
     {
         $data = $this->request->getJSON(true);
@@ -87,40 +111,5 @@ class Client extends BaseApiController
         }
 
         return $this->respondDeleted(['message' => 'Client berhasil di-nonaktifkan']);
-    }
-
-    public function show_all_clients()
-    {
-        $tenantId = auth_tenant_id();
-
-        $clients = $this->model
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->findAll();
-
-        return $this->respond([
-            'status' => true,
-            'data'   => $clients
-        ]);
-    }
-
-    public function showClient_ByID($id = null)
-    {
-        $tenantId = auth_tenant_id();
-
-        $client = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->first();
-
-        if (!$client) {
-            return $this->failNotFound('Client tidak ditemukan atau sudah dihapus.');
-        }
-
-        return $this->respond([
-            'status' => true,
-            'data'   => $client
-        ]);
     }
 }

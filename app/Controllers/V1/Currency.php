@@ -17,6 +17,46 @@ class Currency extends BaseApiController
         $this->defaultCurrencyModel = new Mdl_default_currency();
     }
 
+    // Show All Currencies
+    public function show_all_currencies()
+    {
+        $tenantId = auth_tenant_id();
+
+        $currencies = $this->model->getAllCurrenciesRaw($tenantId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $currencies
+        ]);
+    }
+
+    // Show Currency by ID
+    public function showCurrency_ByID($id = null)
+    {
+        $tenantId = auth_tenant_id();
+
+        $currency = $this->model->getCurrencyByIdRaw($tenantId, $id);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $currency
+        ]);
+    }
+
+    // Show Default Currencies
+    public function show_default_currencies()
+    {
+        // Ambil data default currencies dari tabel default_currency
+        $defaultCurrencies = $this->defaultCurrencyModel
+            ->where('is_active', 1)
+            ->findAll();
+
+        return $this->respond([
+            'status' => true,
+            'data' => $defaultCurrencies
+        ]);
+    }
+
     public function create()
     {
         $data = $this->request->getJSON(true);
@@ -60,56 +100,5 @@ class Currency extends BaseApiController
         }
 
         return $this->respondDeleted(['message' => 'Currency berhasil di-nonaktifkan (soft delete)']);
-    }
-
-    // Show All Currencies
-    public function show_all_currencies()
-    {
-        $tenantId = auth_tenant_id();
-
-        $currencies = $this->model
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->findAll();
-
-        return $this->respond([
-            'status' => true,
-            'data' => $currencies
-        ]);
-    }
-
-    // Show Currency by ID
-    public function showCurrency_ByID($id = null)
-    {
-        $tenantId = auth_tenant_id();
-
-        $currency = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->first();
-
-        if (!$currency) {
-            return $this->failNotFound('Currency tidak ditemukan atau sudah dihapus.');
-        }
-
-        return $this->respond([
-            'status' => true,
-            'data' => $currency
-        ]);
-    }
-
-    // Show Default Currencies
-    public function show_default_currencies()
-    {
-        // Ambil data default currencies dari tabel default_currency
-        $defaultCurrencies = $this->defaultCurrencyModel
-            ->where('is_active', 1)
-            ->findAll();
-
-        return $this->respond([
-            'status' => true,
-            'data' => $defaultCurrencies
-        ]);
     }
 }
