@@ -19,6 +19,19 @@ class Mdl_member extends Model
     protected $retryTimeout     = 15 * 60; // 15 minutes
 
     // Raw Query
+    public function showAll($tenant_id){
+        $sql="SELECT us.*, ro.name as role 
+                FROM users us INNER JOIN roles ro ON us.role_id=ro.id 
+                INNER JOIN tenants te ON us.tenant_id = te.id
+                WHERE te.is_active=1
+                AND us.is_active=1
+                AND us.tenant_id=?
+                AND ro.is_active=1
+                ";
+        $query=$this->db->query($sql,$tenant_id);
+        return $query->getResultArray();
+    }
+    
     public function insertUserRaw(array $data)
     {
         $sql = "INSERT INTO users 

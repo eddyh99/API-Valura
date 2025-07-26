@@ -121,10 +121,7 @@ class User extends BaseApiController
     {
         $tenantId = auth_tenant_id();
 
-        $users = $this->member
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->findAll();
+        $users = $this->member->showAll($tenantId);
 
         return $this->respond([
             'status' => true,
