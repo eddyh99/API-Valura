@@ -1,9 +1,10 @@
 <?php
 namespace App\Models;
 
-use CodeIgniter\Model;
+use App\Models\BaseModel;
+use App\Models\Mdl_role;
 
-class Mdl_member extends Model
+class Mdl_member extends BaseModel
 {
     protected $table            = 'users';
     protected $primaryKey       = 'id';
@@ -19,6 +20,48 @@ class Mdl_member extends Model
     protected $retryTimeout     = 15 * 60; // 15 minutes
 
     // Raw Query
+    public function __construct()
+    {
+        parent::__construct();
+        $this->roles = new Mdl_role();
+    }
+
+    public function getAllUsersRaw($tenantId)
+    {
+        $sql = "SELECT 
+                    u.id,
+                    u.username,
+                    u.email,
+                    r.name AS role,
+                    u.tenant_id,
+                    u.branch_id,
+                    u.is_active
+                FROM users u
+                LEFT JOIN roles r ON u.role_id = r.id
+                WHERE u.tenant_id = ? AND u.is_active = 1
+                ORDER BY u.id ASC";
+
+        return $this->db->query($sql, [$tenantId])->getResultArray();
+    }
+
+    public function getUserByIdRaw($tenantId, $userId)
+    {
+        $sql = "SELECT 
+                    u.id,
+                    u.username,
+                    u.email,
+                    u.tenant_id,
+                    u.branch_id,
+                    u.is_active
+                    r.name AS role
+                FROM users u
+                LEFT JOIN roles r ON u.role_id = r.id
+                WHERE u.id = ? AND u.tenant_id = ? AND u.is_active = 1
+                LIMIT 1";
+
+        return $this->db->query($sql, [$userId, $tenantId])->getRowArray();
+    }
+
     public function insertUserRaw(array $data)
     {
         $sql = "INSERT INTO users 

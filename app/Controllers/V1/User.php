@@ -15,6 +15,32 @@ class User extends BaseApiController
         $this->member = new Mdl_member();
     }
 
+    // Show All Users
+    public function show_all_users()
+    {
+        $tenantId = auth_tenant_id();
+
+        $users = $this->member->getAllUsersRaw($tenantId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $users
+        ]);
+    }
+
+    // Show User by ID
+    public function showUser_ByID($id = null)
+    {
+        $tenantId = auth_tenant_id();
+
+        $user = $this->member->getUserByIdRaw($tenantId, $id);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $user
+        ]);
+    }
+
     public function create()
     {
         $rules = [
@@ -114,42 +140,5 @@ class User extends BaseApiController
         }
 
         return $this->respondDeleted(['message' => 'User berhasil dinonaktifkan.']);
-    }
-
-    // Show All Users
-    public function show_all_users()
-    {
-        $tenantId = auth_tenant_id();
-
-        $users = $this->member
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->findAll();
-
-        return $this->respond([
-            'status' => true,
-            'data' => $users
-        ]);
-    }
-
-    // Show User by ID
-    public function showUser_ByID($id = null)
-    {
-        $tenantId = auth_tenant_id();
-
-        $user = $this->member
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->first();
-
-        if (!$user) {
-            return $this->failNotFound('User tidak ditemukan atau sudah dihapus.');
-        }
-
-        return $this->respond([
-            'status' => true,
-            'data' => $user
-        ]);
     }
 }

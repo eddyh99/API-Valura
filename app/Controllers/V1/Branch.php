@@ -9,29 +9,27 @@ class Branch extends BaseApiController
 {
     protected $modelName = Mdl_branch::class;
     protected $format    = 'json';
+    protected $branchModel;
 
-    // Show All Branches
+    public function __construct()
+    {
+        $this->branchModel = new Mdl_branch();
+    }
+
     public function show_all_branches()
     {
         $tenantId = auth_tenant_id();
 
-        // Ambil semua cabang aktif milik tenant ini
-        $branches = $this->model
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->findAll();
+        $branches = $this->model->getAllBranchesRaw($tenantId);
 
-        // Ambil data tenant max_branch dari model tenant
-        $mdlTenant = new \App\Models\Mdl_tenant();
-        $tenant = $mdlTenant->find($tenantId);
-
-        $maxBranch = 0;
-        if ($tenant && isset($tenant['max_branch'])) {
-            $maxBranch = (int) $tenant['max_branch'];
-        }
-
-        // Hitung jumlah cabang aktif saat ini
+        // Asumsikan semua baris punya nilai max_branch sama (ambil dari baris pertama saja)
+        $maxBranch = $branches[0]['max_branch'] ?? null;
         $currentBranchCount = count($branches);
+
+        // Opsional: hilangkan field 'max_branch' dari setiap data cabang
+        foreach ($branches as &$b) {
+            unset($b['max_branch']);
+        }
 
         return $this->respond([
             'status' => true,
@@ -41,20 +39,11 @@ class Branch extends BaseApiController
         ]);
     }
 
-    // Show Branch by ID
     public function showBranch_ByID($id = null)
     {
         $tenantId = auth_tenant_id();
 
-        $branch = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->first();
-
-        if (!$branch) {
-            return $this->failNotFound('Branch tidak ditemukan atau sudah dihapus.');
-        }
+        $branch = $this->branchModel->getBranchByIdRaw($tenantId, $id);
 
         return $this->respond([
             'status' => true,

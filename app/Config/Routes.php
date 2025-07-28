@@ -53,6 +53,8 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->get('currency', 'V1\Currency::show_all_currencies');
     $routes->get('currency/(:num)', 'V1\Currency::showCurrency_ByID/$1');
     $routes->get('currency/default', 'V1\Currency::show_default_currencies');
+
+    $routes->get('currency/recap', 'V1\Currency::rekapCurrencyPenukaran');
 });
 
 // Exchange Rate
@@ -84,6 +86,8 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->get('cash', 'V1\Cash::show_all_cashes');
     $routes->get('cash/(:num)', 'V1\Cash::showCash_ByID/$1');
     $routes->get('cash/branch/(:num)', 'V1\Cash::showCash_ByBranchID/$1');
+
+    $routes->get('cash/daily', 'V1\Cash::showDailyCash');
 });
 
 // Transaction
@@ -92,7 +96,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->post('transaction', 'V1\Transaction::create');
     $routes->put('transaction/(:num)', 'V1\Transaction::update/$1');
     $routes->delete('transaction/(:num)', 'V1\Transaction::delete/$1');
-    $routes->post('transaction/daily', 'V1\Transaction::dailyReport');
+    $routes->get('transaction/daily', 'V1\Transaction::showDailyTransaction');
 });
 
 // Bank

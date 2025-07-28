@@ -43,7 +43,8 @@ class Mdl_agent extends BaseModel
                     id,
                     name,
                     address,
-                    phone
+                    phone,
+                    is_active
                 FROM agents
                 WHERE id = ? AND tenant_id = ? AND is_active = 1
                 LIMIT 1";

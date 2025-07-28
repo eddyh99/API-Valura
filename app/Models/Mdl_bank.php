@@ -58,48 +58,4 @@ class Mdl_bank extends BaseModel
 
         return $this->db->query($sql, [$bankId, $tenantId])->getRowArray();
     }
-
-    // public function insertBankRaw(array $data)
-    // {
-    //     $sql = "INSERT INTO banks (tenant_id, name, account_no, branch, is_active, created_by)
-    //             VALUES (?, ?, ?, ?, ?, ?)";
-
-    //     return $this->db->query($sql, [
-    //         $data['tenant_id'],
-    //         $data['name'],
-    //         $data['account_no'] ?? null,
-    //         $data['branch'] ?? null,
-    //         $data['is_active'],
-    //         $data['created_by']
-    //     ]);
-    // }
-
-    // public function updateBankRaw($id, array $data)
-    // {
-    //     $sql = "UPDATE banks SET 
-    //                 name = ?, 
-    //                 account_no = ?, 
-    //                 branch = ?
-    //             WHERE id = ? AND is_active = 1";
-
-    //     return $this->db->query($sql, [
-    //         $data['name'],
-    //         $data['account_no'] ?? null,
-    //         $data['branch'] ?? null,
-    //         $id
-    //     ]);
-    // }
-
-    // public function softDeleteBankRaw($id)
-    // {
-    //     $sql = "UPDATE banks SET is_active = 0 WHERE id = ? AND is_active = 1";
-
-    //     return $this->db->query($sql, [$id]);
-    // }
-
-    // public function getActiveBankByIdRaw($id)
-    // {
-    //     $sql = "SELECT * FROM banks WHERE id = ? AND is_active = 1";
-    //     return $this->db->query($sql, [$id])->getRowArray();
-    // }
 }

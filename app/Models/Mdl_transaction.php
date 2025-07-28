@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\BaseModel;
 use App\Models\Mdl_client;
+use App\Models\Mdl_currency;
 
 class Mdl_transaction extends BaseModel
 {
@@ -21,6 +22,7 @@ class Mdl_transaction extends BaseModel
     {
         parent::__construct();
         $this->clients = new Mdl_client();
+        $this->currencies = new Mdl_currency();
     }
     // Show by ID 
     public function getTransactionByIdRaw($tenantId, $transactionId)
@@ -52,6 +54,71 @@ class Mdl_transaction extends BaseModel
                 GROUP BY tr.id;";
 
         return $this->db->query($sql, [$tenantId, $transactionId])->getRowArray();
+    }
+    // Show Daily Transaction by Today & Branch
+    // Show Daily Transaction by Today & Branch
+    public function getDailyTransactionRaw($tenantId, $branchId)
+    {
+        $sql = "
+            SELECT 
+                tr.id AS transaction_id,
+                tr.created_at AS transaction_date,
+                tr.transaction_type,
+                c.code AS currency,
+                tl.rate_used AS rate,
+                tl.amount_foreign,
+                tl.amount_local,
+                (tl.amount_foreign * tl.rate_used) AS subtotal_local_estimation
+            FROM transactions tr
+            JOIN transaction_lines tl ON tl.transaction_id = tr.id
+            JOIN currencies c ON c.id = tl.currency_id
+            WHERE tr.tenant_id = ?
+                AND tr.branch_id = ?
+                AND DATE(tr.created_at) = CURDATE()
+            ORDER BY tr.created_at ASC
+        ";
+
+        return $this->db->query($sql, [$tenantId, $branchId])->getResultArray();
+    }
+
+    public function getCurrencySummaryRaw($tenantId, $startDate = null, $endDate = null, $branchIdList = [])
+    {
+        // Default ke hari ini jika tidak diberikan range tanggal
+        if (!$startDate || !$endDate) {
+            $startDate = $endDate = date('Y-m-d');
+        }
+
+        // Buat bagian filter branch jika diberikan daftar cabang
+        $branchFilterSql = '';
+        if (!empty($branchIdList)) {
+            $placeholders = implode(',', array_fill(0, count($branchIdList), '?'));
+            $branchFilterSql = "AND tr.branch_id IN ($placeholders)";
+        }
+
+        // SQL utama
+        $sql = "
+            SELECT 
+                b.name AS branch,
+                c.code AS currency,
+                SUM(CASE 
+                    WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign
+                    WHEN tr.transaction_type = 'SELL' THEN tl.amount_local
+                    ELSE 0
+                END) AS amount
+            FROM transactions tr
+            JOIN transaction_lines tl ON tl.transaction_id = tr.id
+            JOIN currencies c ON c.id = tl.currency_id
+            JOIN branches b ON b.id = tr.branch_id
+            WHERE tr.tenant_id = ?
+                AND DATE(tr.created_at) BETWEEN ? AND ?
+                $branchFilterSql
+            GROUP BY tr.branch_id, tl.currency_id
+            ORDER BY b.name ASC, c.code ASC
+        ";
+
+        $params = array_merge([$tenantId, $startDate, $endDate], $branchIdList);
+
+        return $this->db->query($sql, $params)->getResultArray();
     }
 
     // Create

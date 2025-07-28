@@ -3,6 +3,7 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_cash;
+use App\Models\Mdl_branch;
 use App\Controllers\BaseApiController;
 
 class Cash extends BaseApiController
@@ -10,23 +11,18 @@ class Cash extends BaseApiController
     protected $modelName = Mdl_cash::class;
     protected $format    = 'json';
 
+    protected $branchModel;
+
+    public function __construct()
+    {
+        $this->branchModel      = new Mdl_branch();
+    }
+
     public function show_all_cashes()
     {
         $tenantId = auth_tenant_id();
-        $branchId = auth_branch_id();
 
-        // Dapatkan awal dan akhir hari ini dalam format datetime
-        $startOfDay = date('Y-m-d 00:00:00');
-        $endOfDay   = date('Y-m-d 23:59:59');
-
-        $cashes = $this->model
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->where('branch_id', $branchId)
-            // Filter berdasarkan occurred_at di rentang hari ini
-            ->where('occurred_at >=', $startOfDay)
-            ->where('occurred_at <=', $endOfDay)
-            ->findAll();
+        $cashes = $this->model->getAllCashesRaw($tenantId);
 
         return $this->respond([
             'status' => true,
@@ -39,19 +35,118 @@ class Cash extends BaseApiController
     {
         $tenantId = auth_tenant_id();
 
-        $cash = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->first();
-
-        if (!$cash) {
-            return $this->failNotFound('Cash tidak ditemukan atau sudah dihapus.');
-        }
+        $cash = $this->model->getCashByIdRaw($tenantId, $id);
 
         return $this->respond([
             'status' => true,
             'data' => $cash
+        ]);
+    }
+
+    public function showDailyCash()
+    {
+        $tenantId = auth_tenant_id();
+        $branchId = auth_branch_id();
+
+        // Ambil data cash hari ini
+        $cashData = $this->model->getDailyCashRaw($branchId);
+
+        // Kelompokkan berdasarkan movement_type
+        $grouped = [
+            'AWAL' => [],
+            'IN' => [],
+            'OUT' => [],
+        ];
+
+        $totals = [
+            'total_awal' => 0,
+            'total_in' => 0,
+            'total_out' => 0,
+        ];
+
+        foreach ($cashData as $row) {
+            $type = strtoupper($row['movement_type']);
+
+            if (isset($grouped[$type])) {
+                $grouped[$type][] = [
+                    'cash_id' => (int) $row['id'],
+                    'amount' => (float) $row['amount'],
+                ];
+
+                $totals["total_" . strtolower($type)] += (float) $row['amount'];
+            }
+        }
+
+        // Perhitungan total kas hari ini
+        $totalKasHariIni = $totals['total_awal'] + $totals['total_in'] - $totals['total_out'];
+
+        return $this->respond([
+            'tanggal' => date('Y-m-d'),
+            'cabang' => $this->branchModel->getBranchNameById($branchId),
+            'AWAL' => $grouped['AWAL'],
+            'IN' => $grouped['IN'],
+            'OUT' => $grouped['OUT'],
+            'total_awal' => $totals['total_awal'],
+            'total_in' => $totals['total_in'],
+            'total_out' => $totals['total_out'],
+            'total' => $totalKasHariIni
+        ]);
+    }
+
+    // public function show_all_cashes()
+    // {
+    //     $tenantId = auth_tenant_id();
+    //     $branchId = auth_branch_id();
+
+    //     // Dapatkan awal dan akhir hari ini dalam format datetime
+    //     $startOfDay = date('Y-m-d 00:00:00');
+    //     $endOfDay   = date('Y-m-d 23:59:59');
+
+    //     $cashes = $this->model
+    //         ->where('is_active', 1)
+    //         ->where('tenant_id', $tenantId)
+    //         ->where('branch_id', $branchId)
+    //         // Filter berdasarkan occurred_at di rentang hari ini
+    //         ->where('occurred_at >=', $startOfDay)
+    //         ->where('occurred_at <=', $endOfDay)
+    //         ->findAll();
+
+    //     return $this->respond([
+    //         'status' => true,
+    //         'today'  => date('Y-m-d'),
+    //         'data' => $cashes
+    //     ]);
+    // }
+
+    // public function showCash_ByID($id = null)
+    // {
+    //     $tenantId = auth_tenant_id();
+
+    //     $cash = $this->model
+    //         ->where('id', $id)
+    //         ->where('is_active', 1)
+    //         ->where('tenant_id', $tenantId)
+    //         ->first();
+
+    //     if (!$cash) {
+    //         return $this->failNotFound('Cash tidak ditemukan atau sudah dihapus.');
+    //     }
+
+    //     return $this->respond([
+    //         'status' => true,
+    //         'data' => $cash
+    //     ]);
+    // }
+
+    public function showCash_ByBranchID($id = null)
+    {
+        $branchId = auth_branch_id(); 
+
+        $data = $this->model->getTodayCashByBranch($id);
+
+        return $this->respond([
+            'status' => true,
+            'data'   => $data 
         ]);
     }
 
@@ -131,21 +226,5 @@ class Cash extends BaseApiController
         }
 
         return $this->respondDeleted(['message' => 'Cash berhasil di-nonaktifkan']);
-    }
-
-    public function showCash_ByBranchID($id = null)
-    {
-        $branchId = auth_branch_id(); 
-
-        $data = $this->model->getTodayCashByBranch($id);
-
-        if (empty($data)) {
-            return $this->failNotFound('Tidak ada kas yang ditemukan untuk hari ini.');
-        }
-
-        return $this->respond([
-            'status' => true,
-            'data'   => $data 
-        ]);
     }
 }
