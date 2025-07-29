@@ -20,48 +20,19 @@ class Mdl_member extends BaseModel
     protected $retryTimeout     = 15 * 60; // 15 minutes
 
     // Raw Query
-    public function __construct()
-    {
-        parent::__construct();
-        $this->roles = new Mdl_role();
+    public function showAll($tenant_id){
+        $sql="SELECT us.*, ro.name as role 
+                FROM users us INNER JOIN roles ro ON us.role_id=ro.id 
+                INNER JOIN tenants te ON us.tenant_id = te.id
+                WHERE te.is_active=1
+                AND us.is_active=1
+                AND us.tenant_id=?
+                AND ro.is_active=1
+                ";
+        $query=$this->db->query($sql,$tenant_id);
+        return $query->getResultArray();
     }
-
-    public function getAllUsersRaw($tenantId)
-    {
-        $sql = "SELECT 
-                    u.id,
-                    u.username,
-                    u.email,
-                    r.name AS role,
-                    u.tenant_id,
-                    u.branch_id,
-                    u.is_active
-                FROM users u
-                LEFT JOIN roles r ON u.role_id = r.id
-                WHERE u.tenant_id = ? AND u.is_active = 1
-                ORDER BY u.id ASC";
-
-        return $this->db->query($sql, [$tenantId])->getResultArray();
-    }
-
-    public function getUserByIdRaw($tenantId, $userId)
-    {
-        $sql = "SELECT 
-                    u.id,
-                    u.username,
-                    u.email,
-                    u.tenant_id,
-                    u.branch_id,
-                    u.is_active
-                    r.name AS role
-                FROM users u
-                LEFT JOIN roles r ON u.role_id = r.id
-                WHERE u.id = ? AND u.tenant_id = ? AND u.is_active = 1
-                LIMIT 1";
-
-        return $this->db->query($sql, [$userId, $tenantId])->getRowArray();
-    }
-
+    
     public function insertUserRaw(array $data)
     {
         $sql = "INSERT INTO users 
