@@ -18,7 +18,6 @@ class Transaction extends BaseApiController
     public function __construct()
     {
         $this->transactionModel = new Mdl_transaction();
-
         $this->clientModel      = new Mdl_client();
     }
 
@@ -34,6 +33,31 @@ class Transaction extends BaseApiController
             'status' => true,
             'transaction' => $transaction
         ]);
+    }
+
+    // Show Daily Transaction by Today & Branch
+    public function showDailyTransaction()
+    {
+        $tenantId = auth_tenant_id();
+        $branchId = auth_branch_id();
+
+        $data = $this->transactionModel->getDailyTransactionRaw($tenantId, $branchId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $data
+        ]);
+    }
+
+    public function getTodayTransactionByBranch($branchId)
+    {
+        $sql = "SELECT * 
+                FROM cash_movements 
+                WHERE branch_id = ? 
+                AND is_active = 1 
+                AND DATE(occurred_at) = CURDATE()";
+
+        return $this->db->query($sql, [$branchId])->getResultArray();
     }
 
     public function create()

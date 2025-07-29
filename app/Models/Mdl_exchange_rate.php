@@ -23,7 +23,6 @@ class Mdl_exchange_rate extends BaseModel
         $sql = "SELECT            
                     c.code AS currency_id, 
                     c.is_active,
-                    er.currency_id,
                     er.buy_rate,
                     er.sell_rate,
                     er.rate_date,

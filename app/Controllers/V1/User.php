@@ -15,6 +15,32 @@ class User extends BaseApiController
         $this->member = new Mdl_member();
     }
 
+    // Show All Users
+    public function show_all_users()
+    {
+        $tenantId = auth_tenant_id();
+
+        $users = $this->member->getAllUsersRaw($tenantId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $users
+        ]);
+    }
+
+    // Show User by ID
+    public function showUser_ByID($id = null)
+    {
+        $tenantId = auth_tenant_id();
+
+        $user = $this->member->getUserByIdRaw($tenantId, $id);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $user
+        ]);
+    }
+
     public function create()
     {
         $rules = [

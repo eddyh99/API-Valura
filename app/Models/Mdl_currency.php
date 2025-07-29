@@ -16,10 +16,7 @@ class Mdl_currency extends BaseModel
 
     public function getAllCurrenciesRaw($tenantId)
     {
-        $sql = "SELECT 
-                    name,
-                    code,
-                    symbol
+        $sql = "SELECT *
                 FROM currencies
                 WHERE tenant_id = ? AND is_active = 1
                 ORDER BY id ASC";
@@ -29,14 +26,22 @@ class Mdl_currency extends BaseModel
 
     public function getCurrencyByIdRaw($tenantId, $clientId)
     {
-        $sql = "SELECT 
-                    code,
-                    name,
-                    symbol
+        $sql = "SELECT *
                 FROM currencies
                 WHERE id = ? AND tenant_id = ? AND is_active = 1
                 LIMIT 1";
 
         return $this->db->query($sql, [$clientId, $tenantId])->getRowArray();
+    }
+
+    public function getTodayCurrencyByBranch($branchId)
+    {
+        $sql = "SELECT * 
+                FROM cash_movements 
+                WHERE branch_id = ? 
+                AND is_active = 1 
+                AND DATE(occurred_at) = CURDATE()";
+
+        return $this->db->query($sql, [$branchId])->getResultArray();
     }
 }

@@ -28,10 +28,6 @@ class Bank extends BaseApiController
 
         $bank = $this->model->getBankByIdRaw($tenantId, $id);
 
-        // if (!$bank) {
-        //     return $this->failNotFound('Bank tidak ditemukan atau sudah dihapus.');
-        // }
-
         return $this->respond([
             'status' => true,
             'data' => $bank

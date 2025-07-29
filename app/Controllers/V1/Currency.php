@@ -6,6 +6,9 @@ use App\Models\Mdl_currency;
 use App\Models\Mdl_default_currency;
 use App\Controllers\BaseApiController;
 
+use App\Models\Mdl_branch;
+use App\Models\Mdl_transaction;
+
 class Currency extends BaseApiController
 {
     protected $modelName = Mdl_currency::class;
@@ -15,6 +18,9 @@ class Currency extends BaseApiController
     public function __construct()
     {
         $this->defaultCurrencyModel = new Mdl_default_currency();
+
+        $this->branchModel = new Mdl_branch();
+        $this->transactionModel = new Mdl_transaction();
     }
 
     // Show All Currencies
@@ -30,7 +36,59 @@ class Currency extends BaseApiController
         ]);
     }
 
-    // Show Currency by ID
+    // Show Currency Amount by Branch ID
+    public function showTodayCurrency_byBranchID()
+    {
+        $tenantId = auth_tenant_id();
+        $branchId = auth_branch_id();
+
+        $data = $this->transactionModel->getCurrencyAmountByBranchIdRaw($tenantId, $branchId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $data
+        ]);
+    }
+
+    public function rekapCurrencyPenukaran()
+    {
+        $tenantId = auth_tenant_id();
+        $request = $this->request->getJSON(true);
+
+        // Ambil range tanggal dari request (default: hari ini)
+        $today = date('Y-m-d');
+        $startDate = $request['start_date'] ?? $today;
+        $endDate = $request['end_date'] ?? $today;
+
+        // Ambil cabang yang dipilih
+        $branchName = $request['branch'] ?? null;
+
+        // Ambil daftar branch_id untuk tenant
+        $branchIdList = [];
+        if ($branchName) {
+            $branchId = $this->branchModel->getBranchIdByName($branchName);
+            if ($branchId) {
+                $branchIdList = [$branchId];
+            }
+        } else {
+            $branches = $this->branchModel->where('tenant_id', $tenantId)->where('is_active', 1)->findAll();
+            $branchIdList = array_column($branches, 'id');
+        }
+
+        // Query ke model
+        $data = $this->transactionModel->getCurrencySummaryRaw($tenantId, $startDate, $endDate, $branchIdList);
+
+        // Format response
+        $response = [
+            'Range Date' => $startDate . ' - ' . $endDate,
+            'Branch' => $branchName ?? 'Semua Cabang',
+            'Data' => $data
+        ];
+
+        return $this->respond($response);
+    }
+
+    // Show Today Currency by Branch ID
     public function showCurrency_ByID($id = null)
     {
         $tenantId = auth_tenant_id();
