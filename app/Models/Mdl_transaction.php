@@ -24,6 +24,43 @@ class Mdl_transaction extends BaseModel
         $this->clients = new Mdl_client();
         $this->currencies = new Mdl_currency();
     }
+
+    public function getClientRecapRaw($tenantId, $branchId = null, $dateStart = null, $dateEnd = null)
+    {
+        $dateStart = $dateStart ?? date('Y-m-d');
+        $dateEnd   = $dateEnd ?? date('Y-m-d');
+
+        $params = [$tenantId, $dateStart . ' 00:00:00', $dateEnd . ' 23:59:59'];
+        $branchFilter = "";
+
+        if ($branchId) {
+            $branchFilter = "AND tr.branch_id = ?";
+            $params[] = $branchId;
+        }
+
+        $sql = "
+            SELECT 
+                cl.name AS nama,
+                cl.address AS alamat,
+                cl.id_type AS jenis_identitas,
+                cl.id_number AS no_identitas,
+                cl.country AS negara,
+                cl.phone AS no_telp,
+                cl.job AS pekerjaan,
+                SUM(COALESCE(tl.amount_foreign, 0) + COALESCE(tl.amount_local, 0)) * MAX(COALESCE(tl.rate_used, 0)) AS total_tukar_rupiah
+            FROM transactions tr
+            JOIN clients cl ON cl.id = tr.client_id
+            JOIN transaction_lines tl ON tl.transaction_id = tr.id
+            WHERE tr.tenant_id = ?
+            AND tr.created_at BETWEEN ? AND ?
+            $branchFilter
+            GROUP BY cl.id, cl.name, cl.address, cl.id_type, cl.id_number, cl.country, cl.phone, cl.job
+            ORDER BY cl.name ASC
+        ";
+
+        return $this->db->query($sql, $params)->getResultArray();
+    }
+
     // Show by ID 
     public function getTransactionByIdRaw($tenantId, $transactionId)
     {

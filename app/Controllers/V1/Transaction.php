@@ -21,6 +21,20 @@ class Transaction extends BaseApiController
         $this->clientModel      = new Mdl_client();
     }
 
+    // Show Client Data by Date & Branch
+    public function showClientRecap()
+    {
+        $tenantId = auth_tenant_id();
+        $branchId = auth_branch_id();
+
+        $data = $this->transactionModel->getClientRecapRaw($tenantId, $branchId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $data
+        ]);
+    }
+
     // Show Transaction by ID
     public function showTransaction_ByID($id = null)
     {
