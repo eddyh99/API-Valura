@@ -25,6 +25,34 @@ class Mdl_transaction extends BaseModel
         $this->currencies = new Mdl_currency();
     }
 
+    public function getTotalBuySellAmount($branchId)
+    {
+        $sql = "
+            SELECT 
+                tr.transaction_type,
+                SUM(tl.amount_foreign * tl.rate_used) AS total
+            FROM transactions tr
+            JOIN transaction_lines tl ON tl.transaction_id = tr.id
+            WHERE tr.branch_id = ?
+            AND DATE(tr.created_at) = CURDATE()
+            GROUP BY tr.transaction_type
+        ";
+
+        $result = $this->db->query($sql, [$branchId])->getResultArray();
+
+        $output = [
+            'BUY' => 0,
+            'SELL' => 0
+        ];
+
+        foreach ($result as $row) {
+            $type = strtoupper($row['transaction_type']);
+            $output[$type] = (float) $row['total'];
+        }
+
+        return $output;
+    }
+
     public function getClientRecapRaw($tenantId, $branchId = null, $dateStart = null, $dateEnd = null)
     {
         $dateStart = $dateStart ?? date('Y-m-d');
@@ -47,7 +75,7 @@ class Mdl_transaction extends BaseModel
                 cl.country AS negara,
                 cl.phone AS no_telp,
                 cl.job AS pekerjaan,
-                SUM(COALESCE(tl.amount_foreign, 0) + COALESCE(tl.amount_local, 0)) * MAX(COALESCE(tl.rate_used, 0)) AS total_tukar_rupiah
+                SUM(tl.amount_foreign * tl.rate_used) AS total_tukar_rupiah
             FROM transactions tr
             JOIN clients cl ON cl.id = tr.client_id
             JOIN transaction_lines tl ON tl.transaction_id = tr.id

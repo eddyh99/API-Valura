@@ -87,7 +87,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->get('cash/(:num)', 'V1\Cash::showCash_ByID/$1');
     $routes->get('cash/branch/(:num)', 'V1\Cash::showCash_ByBranchID/$1');
 
-    $routes->get('cash/daily', 'V1\Cash::showDailyCash');
+    $routes->get('report/daily-cash', 'V1\Cash::showDailyCash');
     $routes->get('cash/recap', 'V1\Cash::showRecapCash');
 });
 

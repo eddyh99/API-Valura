@@ -4,6 +4,8 @@ namespace App\Controllers\V1;
 
 use App\Models\Mdl_cash;
 use App\Models\Mdl_branch;
+use App\Models\Mdl_transaction;
+
 use App\Controllers\BaseApiController;
 
 class Cash extends BaseApiController
@@ -16,6 +18,7 @@ class Cash extends BaseApiController
     public function __construct()
     {
         $this->branchModel      = new Mdl_branch();
+        $this->transactionModel = new Mdl_transaction();
     }
 
     public function show_all_cashes()
@@ -43,55 +46,112 @@ class Cash extends BaseApiController
         ]);
     }
 
-    public function showDailyCash()
-    {
-        $tenantId = auth_tenant_id();
-        $branchId = auth_branch_id();
+    // Show kas harian/Rekap harian
+public function showDailyCash()
+{
+    $tenantId = auth_tenant_id();
+    $branchId = auth_branch_id();
 
-        // Ambil data cash hari ini
-        $cashData = $this->model->getDailyCashRaw($branchId);
+    // Ambil data cash hari ini
+    $cashData = $this->model->getDailyCashRaw($branchId);
 
-        // Kelompokkan berdasarkan movement_type
-        $grouped = [
-            'AWAL' => [],
-            'IN' => [],
-            'OUT' => [],
-        ];
+    // Kelompokkan berdasarkan movement_type
+    $grouped = [
+        'AWAL' => [],
+        'IN' => [],
+        'OUT' => [],
+    ];
 
-        $totals = [
-            'total_awal' => 0,
-            'total_in' => 0,
-            'total_out' => 0,
-        ];
+    $totals = [
+        'total_awal' => 0,
+        'total_in' => 0,
+        'total_out' => 0,
+    ];
 
-        foreach ($cashData as $row) {
-            $type = strtoupper($row['movement_type']);
-
-            if (isset($grouped[$type])) {
-                $grouped[$type][] = [
-                    'cash_id' => (int) $row['id'],
-                    'amount' => (float) $row['amount'],
-                ];
-
-                $totals["total_" . strtolower($type)] += (float) $row['amount'];
-            }
+    foreach ($cashData as $row) {
+        $type = strtoupper($row['movement_type']);
+        if (isset($grouped[$type])) {
+            $grouped[$type][] = [
+                'cash_id' => (int) $row['id'],
+                'amount' => (float) $row['amount'],
+            ];
+            $totals["total_" . strtolower($type)] += (float) $row['amount'];
         }
-
-        // Perhitungan total kas hari ini
-        $totalKasHariIni = $totals['total_awal'] + $totals['total_in'] - $totals['total_out'];
-
-        return $this->respond([
-            'tanggal' => date('Y-m-d'),
-            'cabang' => $this->branchModel->getBranchNameById($branchId),
-            'AWAL' => $grouped['AWAL'],
-            'IN' => $grouped['IN'],
-            'OUT' => $grouped['OUT'],
-            'total_awal' => $totals['total_awal'],
-            'total_in' => $totals['total_in'],
-            'total_out' => $totals['total_out'],
-            'total' => $totalKasHariIni
-        ]);
     }
+
+    // Ambil data tambahan
+    $sisaKas = $this->model->getSisaKasSebelumnya($branchId);
+    $trxSummary = $this->transactionModel->getTotalBuySellAmount($branchId);
+
+    // Perhitungan total akhir kas hari ini
+    // $totalAkhir = $totals['total_awal'] + $totals['total_in'] - $totals['total_out'];
+    $totalAkhir = $totals['total_awal'] + $totals['total_in'] + $sisaKas + $trxSummary['SELL'] - $totals['total_out'] -$trxSummary['BUY'];
+
+    return $this->respond([
+        'tanggal' => date('Y-m-d'),
+        'cabang' => $this->branchModel->getBranchNameById($branchId),
+        'AWAL' => $grouped['AWAL'],
+        'IN' => $grouped['IN'],
+        'OUT' => $grouped['OUT'],
+        'sisa_kas' => (float) $sisaKas,
+        'total_penjualan' => (float) $trxSummary['SELL'],
+        'total_pembelian' => (float) $trxSummary['BUY'],
+        'total_awal' => $totals['total_awal'],
+        'total_in' => $totals['total_in'],
+        'total_out' => $totals['total_out'],
+        'total_akhir' => $totalAkhir
+    ]);
+}
+
+    // public function showDailyCash()
+    // {
+    //     $tenantId = auth_tenant_id();
+    //     $branchId = auth_branch_id();
+
+    //     // Ambil data cash hari ini
+    //     $cashData = $this->model->getDailyCashRaw($branchId);
+
+    //     // Kelompokkan berdasarkan movement_type
+    //     $grouped = [
+    //         'AWAL' => [],
+    //         'IN' => [],
+    //         'OUT' => [],
+    //     ];
+
+    //     $totals = [
+    //         'total_awal' => 0,
+    //         'total_in' => 0,
+    //         'total_out' => 0,
+    //     ];
+
+    //     foreach ($cashData as $row) {
+    //         $type = strtoupper($row['movement_type']);
+
+    //         if (isset($grouped[$type])) {
+    //             $grouped[$type][] = [
+    //                 'cash_id' => (int) $row['id'],
+    //                 'amount' => (float) $row['amount'],
+    //             ];
+
+    //             $totals["total_" . strtolower($type)] += (float) $row['amount'];
+    //         }
+    //     }
+
+    //     // Perhitungan total kas hari ini
+    //     $totalKasHariIni = $totals['total_awal'] + $totals['total_in'] - $totals['total_out'];
+
+    //     return $this->respond([
+    //         'tanggal' => date('Y-m-d'),
+    //         'cabang' => $this->branchModel->getBranchNameById($branchId),
+    //         'AWAL' => $grouped['AWAL'],
+    //         'IN' => $grouped['IN'],
+    //         'OUT' => $grouped['OUT'],
+    //         'total_awal' => $totals['total_awal'],
+    //         'total_in' => $totals['total_in'],
+    //         'total_out' => $totals['total_out'],
+    //         'total' => $totalKasHariIni
+    //     ]);
+    // }
 
     // public function show_all_cashes()
     // {
@@ -161,6 +221,7 @@ class Cash extends BaseApiController
 
         // Set data tambahan
         $data['tenant_id']  = auth_tenant_id();
+        $data['branch_id']  = auth_branch_id();
         $data['created_by'] = auth_user_id();
         $data['is_active']  = 1;
 

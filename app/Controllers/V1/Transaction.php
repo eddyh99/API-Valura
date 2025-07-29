@@ -25,13 +25,31 @@ class Transaction extends BaseApiController
     public function showClientRecap()
     {
         $tenantId = auth_tenant_id();
-        $branchId = auth_branch_id();
+        $branchId = $this->request->getVar('branch_id');
+        $dateRange = $this->request->getVar('range_date'); // e.g. "28 Jul 2025 - 29 Jul 2025"
 
-        $data = $this->transactionModel->getClientRecapRaw($tenantId, $branchId);
+        if ($dateRange) {
+            [$start, $end] = explode(' - ', $dateRange);
+            $start = date('Y-m-d', strtotime($start));
+            $end = date('Y-m-d', strtotime($end));
+        } else {
+            $start = $end = date('Y-m-d');
+        }
+
+        $branchName = 'Semua Cabang';
+        if ($branchId) {
+            $branch = $this->branchModel->find($branchId);
+            if ($branch) {
+                $branchName = $branch['name'];
+            }
+        }
+
+        $data = $this->transactionModel->getClientRecapRaw($tenantId, $branchId, $start, $end);
 
         return $this->respond([
-            'status' => true,
-            'data' => $data
+            'Range Date' => date('d-m-Y', strtotime($start)) . ' - ' . date('d-m-Y', strtotime($end)),
+            'Branch'     => $branchName,
+            'Data'       => $data
         ]);
     }
 

@@ -26,6 +26,18 @@ class Mdl_cash extends BaseModel
     protected $useTimestamps = false;
     protected $auditEnabled = true;
 
+    public function getSisaKasSebelumnya($branchId)
+    {
+        $sql = "SELECT SUM(amount) AS sisa_kas
+                FROM cash_movements
+                WHERE branch_id = ?
+                AND is_active = 1
+                AND movement_type = 'AWAL'
+                AND DATE(occurred_at) < CURDATE()";
+
+        return $this->db->query($sql, [$branchId])->getRow()->sisa_kas ?? 0;
+    }
+
     public function getAllCashesRaw($tenantId)
     {
         $branchId    = auth_branch_id();
