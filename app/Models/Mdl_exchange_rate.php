@@ -20,7 +20,8 @@ class Mdl_exchange_rate extends BaseModel
     // pakai AS currency_id agar sama seperti di FE (JS rate)
     public function getAllExchangeRatesRaw($tenantId)
     {
-        $sql = "SELECT            
+        $sql = "SELECT
+                    er.id,             
                     c.code AS currency_id, 
                     c.is_active,
                     er.buy_rate,
@@ -97,8 +98,6 @@ class Mdl_exchange_rate extends BaseModel
 
         return $this->db->query($sql, [$currencyId])->getRowArray();
     }
-
-    // app/Models/Mdl_exchange_rate.php
 
     public function getRateByCurrencyAndType($currencyId, $type)
     {

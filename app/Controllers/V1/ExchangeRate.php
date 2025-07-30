@@ -42,6 +42,7 @@ class ExchangeRate extends BaseApiController
 
         $data['tenant_id']   = auth_tenant_id();
         $data['created_by']  = auth_user_id();
+        $data['rate_date']   = date('Y-m-d');
         $data['is_active']   = 1;
 
         if (!$this->model->insert($data)) {

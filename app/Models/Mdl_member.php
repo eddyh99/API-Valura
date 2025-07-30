@@ -20,7 +20,7 @@ class Mdl_member extends BaseModel
     protected $retryTimeout     = 15 * 60; // 15 minutes
 
     // Raw Query
-    public function showAll($tenant_id){
+    public function getAllUsersRaw($tenant_id){
         $sql="SELECT us.*, ro.name as role 
                 FROM users us INNER JOIN roles ro ON us.role_id=ro.id 
                 INNER JOIN tenants te ON us.tenant_id = te.id
@@ -31,6 +31,23 @@ class Mdl_member extends BaseModel
                 ";
         $query=$this->db->query($sql,$tenant_id);
         return $query->getResultArray();
+    }
+
+    public function getUserByIdRaw($tenantId, $userId)
+    {
+        $sql = "SELECT
+                    id,
+                    tenant_id,
+                    role_id,
+                    branch_id,
+                    username,
+                    email,
+                    is_active
+                FROM users
+                WHERE id = ? AND tenant_id = ? AND is_active = 1
+                LIMIT 1";
+
+        return $this->db->query($sql, [$userId, $tenantId])->getRowArray();
     }
     
     public function insertUserRaw(array $data)
