@@ -121,7 +121,6 @@ class Mdl_transaction extends BaseModel
         return $this->db->query($sql, [$tenantId, $transactionId])->getRowArray();
     }
     // Show Daily Transaction by Today & Branch
-    // Show Daily Transaction by Today & Branch
     public function getDailyTransactionRaw($tenantId, $branchId)
     {
         $sql = "
@@ -160,16 +159,12 @@ class Mdl_transaction extends BaseModel
             $branchFilterSql = "AND tr.branch_id IN ($placeholders)";
         }
 
-        // SQL utama
+        // SQL utama sesuai instruksi Bos
         $sql = "
             SELECT 
                 b.name AS branch,
                 c.code AS currency,
-                SUM(CASE 
-                    WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign
-                    WHEN tr.transaction_type = 'SELL' THEN tl.amount_local
-                    ELSE 0
-                END) AS amount
+                SUM(CASE WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign ELSE 0 END) AS amount
             FROM transactions tr
             JOIN transaction_lines tl ON tl.transaction_id = tr.id
             JOIN currencies c ON c.id = tl.currency_id
@@ -181,10 +176,51 @@ class Mdl_transaction extends BaseModel
             ORDER BY b.name ASC, c.code ASC
         ";
 
+        // Gabungkan parameter
         $params = array_merge([$tenantId, $startDate, $endDate], $branchIdList);
 
         return $this->db->query($sql, $params)->getResultArray();
     }
+
+    // public function getCurrencySummaryRaw($tenantId, $startDate = null, $endDate = null, $branchIdList = [])
+    // {
+    //     // Default ke hari ini jika tidak diberikan range tanggal
+    //     if (!$startDate || !$endDate) {
+    //         $startDate = $endDate = date('Y-m-d');
+    //     }
+
+    //     // Buat bagian filter branch jika diberikan daftar cabang
+    //     $branchFilterSql = '';
+    //     if (!empty($branchIdList)) {
+    //         $placeholders = implode(',', array_fill(0, count($branchIdList), '?'));
+    //         $branchFilterSql = "AND tr.branch_id IN ($placeholders)";
+    //     }
+
+    //     // SQL utama
+    //     $sql = "
+    //         SELECT 
+    //             b.name AS branch,
+    //             c.code AS currency,
+    //             SUM(CASE 
+    //                 WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign
+    //                 WHEN tr.transaction_type = 'SELL' THEN tl.amount_local
+    //                 ELSE 0
+    //             END) AS amount
+    //         FROM transactions tr
+    //         JOIN transaction_lines tl ON tl.transaction_id = tr.id
+    //         JOIN currencies c ON c.id = tl.currency_id
+    //         JOIN branches b ON b.id = tr.branch_id
+    //         WHERE tr.tenant_id = ?
+    //             AND DATE(tr.created_at) BETWEEN ? AND ?
+    //             $branchFilterSql
+    //         GROUP BY tr.branch_id, tl.currency_id
+    //         ORDER BY b.name ASC, c.code ASC
+    //     ";
+
+    //     $params = array_merge([$tenantId, $startDate, $endDate], $branchIdList);
+
+    //     return $this->db->query($sql, $params)->getResultArray();
+    // }
 
     // Create
     private $reusedIdempotency = false;
@@ -298,72 +334,6 @@ class Mdl_transaction extends BaseModel
             return false;
         }
     }
-    // Update tanpa hapus lines lama
-    // public function updateTransactionLinesTodayOnly($transactionId, $tenantId, array $newLines)
-    // {
-    //     $this->db->transStart();
-
-    //     // Pastikan transaksi milik tenant dan dibuat hari ini
-    //     $sql = "SELECT id FROM {$this->table}
-    //             WHERE id = ? AND tenant_id = ? AND DATE(transaction_date) = CURDATE()";
-    //     $exists = $this->db->query($sql, [$transactionId, $tenantId])->getRowArray();
-
-    //     if (!$exists) {
-    //         return false;
-    //     }
-
-    //     try {
-    //         // Ambil semua line ID lama milik transaksi ini
-    //         $oldLines = $this->db->table('transaction_lines')
-    //                             ->select('id')
-    //                             ->where('transaction_id', $transactionId)
-    //                             ->get()
-    //                             ->getResultArray();
-
-    //         $oldIds = array_column($oldLines, 'id'); // misal [1, 2, 3]
-    //         $incomingIds = [];
-
-    //         foreach ($newLines as $line) {
-    //             $line['transaction_id'] = $transactionId;
-
-    //             if (!empty($line['id'])) {
-    //                 // Simpan id yang dikirim user
-    //                 $incomingIds[] = $line['id'];
-
-    //                 // Update baris existing
-    //                 $updateData = $line;
-    //                 $id = $updateData['id'];
-    //                 unset($updateData['id']); // jangan update kolom id
-
-    //                 $this->db->table('transaction_lines')
-    //                         ->where('id', $id)
-    //                         ->where('transaction_id', $transactionId) // tambahan safety
-    //                         ->update($updateData);
-    //             } else {
-    //                 // Insert baru (karena tidak ada id)
-    //                 $this->db->table('transaction_lines')->insert($line);
-    //             }
-    //         }
-
-    //         // Hapus lines yang lama tapi tidak dikirim ulang oleh user
-    //         if (!empty($oldIds)) {
-    //             $idsToDelete = array_diff($oldIds, $incomingIds);
-    //             if (!empty($idsToDelete)) {
-    //                 $this->db->table('transaction_lines')
-    //                         ->where('transaction_id', $transactionId)
-    //                         ->whereIn('id', $idsToDelete)
-    //                         ->delete();
-    //             }
-    //         }
-
-    //         $this->db->transComplete();
-    //         return $this->db->transStatus();
-    //     } catch (\Throwable $e) {
-    //         $this->db->transRollback();
-    //         log_message('error', 'Update lines (tanpa delete total) gagal: ' . $e->getMessage());
-    //         return false;
-    //     }
-    // }
 
     // Delete (Only Today)
     public function deleteTransactionTodayOnly($id, $tenantId)

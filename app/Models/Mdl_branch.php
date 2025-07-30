@@ -33,11 +33,11 @@ class Mdl_branch extends BaseModel
 
     public function getAllBranchesRaw($tenantId)
     {
-        $sql = "SELECT 
+        $sql = "SELECT
                     b.id,
                     b.name,
                     b.address,
-                    b.phone,
+                    b.phone, 
                     b.is_active,
                     t.max_branch
                 FROM branches b

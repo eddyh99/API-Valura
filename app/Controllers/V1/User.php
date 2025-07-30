@@ -48,8 +48,7 @@ class User extends BaseApiController
             'email'      => 'required|valid_email|is_unique[users.email]',
             'password'   => 'required|min_length[6]',
             'role_id'    => 'required|integer',
-            'tenant_id'  => 'required|integer',
-            'branch_id'  => 'required|integer' // optional
+            'branch_id'  => 'required|integer'
         ];
 
         if (!$this->validate($rules)) {
@@ -62,10 +61,10 @@ class User extends BaseApiController
             'username'      => htmlspecialchars($data['username']),
             'email'         => htmlspecialchars($data['email']),
             'role_id'       => $data['role_id'],
-            'tenant_id'     => $data['tenant_id'],
+            'branch_id'     => $data['branch_id'],
+            'tenant_id'     => auth_tenant_id(), // ← Ambil otomatis dari helper
             'password_hash' => password_hash($data['password'], PASSWORD_DEFAULT),
-            'is_active'     => 1,
-            'branch_id'     => $data['branch_id']
+            'is_active'     => 1
         ];
 
         $userId = $this->member->insert($insertData);
@@ -142,37 +141,37 @@ class User extends BaseApiController
         return $this->respondDeleted(['message' => 'User berhasil dinonaktifkan.']);
     }
 
-    // Show All Users
-    public function show_all_users()
-    {
-        $tenantId = auth_tenant_id();
+    // // Show All Users
+    // public function show_all_users()
+    // {
+    //     $tenantId = auth_tenant_id();
 
-        $users = $this->member->showAll($tenantId);
+    //     $users = $this->member->showAll($tenantId);
 
-        return $this->respond([
-            'status' => true,
-            'data' => $users
-        ]);
-    }
+    //     return $this->respond([
+    //         'status' => true,
+    //         'data' => $users
+    //     ]);
+    // }
 
     // Show User by ID
-    public function showUser_ByID($id = null)
-    {
-        $tenantId = auth_tenant_id();
+    // public function showUser_ByID($id = null)
+    // {
+    //     $tenantId = auth_tenant_id();
 
-        $user = $this->member
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->where('tenant_id', $tenantId)
-            ->first();
+    //     $user = $this->member
+    //         ->where('id', $id)
+    //         ->where('is_active', 1)
+    //         ->where('tenant_id', $tenantId)
+    //         ->first();
 
-        if (!$user) {
-            return $this->failNotFound('User tidak ditemukan atau sudah dihapus.');
-        }
+    //     if (!$user) {
+    //         return $this->failNotFound('User tidak ditemukan atau sudah dihapus.');
+    //     }
 
-        return $this->respond([
-            'status' => true,
-            'data' => $user
-        ]);
-    }
+    //     return $this->respond([
+    //         'status' => true,
+    //         'data' => $user
+    //     ]);
+    // }
 }
