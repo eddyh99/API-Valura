@@ -56,7 +56,7 @@ class Mdl_client extends BaseModel
 
     //     return $this->db->query($sql, [$currencyId, $tenantId])->getRowArray();
     // }
-        public function getClientByIdRaw($tenantId, $currencyId)
+    public function getClientByIdRaw($tenantId, $currencyId)
     {
         $sql = "SELECT *
                 FROM clients
@@ -65,12 +65,12 @@ class Mdl_client extends BaseModel
 
         return $this->db->query($sql, [$currencyId, $tenantId])->getRowArray();
     }
-
     public function getClientByIdNumberRaw($idNumber)
     {
         $sql = "SELECT * FROM clients WHERE id_number = ? LIMIT 1";
         return $this->db->query($sql, [$idNumber])->getRowArray();
     }
+    
     public function insertClientRaw($data)
     {
         $sql = "INSERT INTO clients (tenant_id, name, id_type, id_number, address, job, is_active, created_at)

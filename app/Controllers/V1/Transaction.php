@@ -21,6 +21,38 @@ class Transaction extends BaseApiController
         $this->clientModel      = new Mdl_client();
     }
 
+    // Show Client Data by Date & Branch
+    public function showClientRecap()
+    {
+        $tenantId = auth_tenant_id();
+        $branchId = $this->request->getVar('branch_id');
+        $dateRange = $this->request->getVar('range_date'); // e.g. "28 Jul 2025 - 29 Jul 2025"
+
+        if ($dateRange) {
+            [$start, $end] = explode(' - ', $dateRange);
+            $start = date('Y-m-d', strtotime($start));
+            $end = date('Y-m-d', strtotime($end));
+        } else {
+            $start = $end = date('Y-m-d');
+        }
+
+        $branchName = 'Semua Cabang';
+        if ($branchId) {
+            $branch = $this->branchModel->find($branchId);
+            if ($branch) {
+                $branchName = $branch['name'];
+            }
+        }
+
+        $data = $this->transactionModel->getClientRecapRaw($tenantId, $branchId, $start, $end);
+
+        return $this->respond([
+            'Range Date' => date('d-m-Y', strtotime($start)) . ' - ' . date('d-m-Y', strtotime($end)),
+            'Branch'     => $branchName,
+            'Data'       => $data
+        ]);
+    }
+
     // Show Transaction by ID
     public function showTransaction_ByID($id = null)
     {
