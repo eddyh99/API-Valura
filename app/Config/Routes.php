@@ -54,7 +54,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->get('currency/(:num)', 'V1\Currency::showCurrency_ByID/$1');
     $routes->get('currency/default', 'V1\Currency::show_default_currencies');
 
-    $routes->get('currency/recap', 'V1\Currency::rekapCurrencyPenukaran');
+    $routes->post('currency/recap', 'V1\Currency::rekapCurrencyPenukaran');
 });
 
 // Exchange Rate

@@ -145,20 +145,22 @@ class Mdl_transaction extends BaseModel
         return $this->db->query($sql, [$tenantId, $branchId])->getResultArray();
     }
 
-    public function getCurrencySummaryRaw($tenantId, $startDate = null, $endDate = null, $branchIdList = [])
+    public function getCurrencySummaryRaw($tenantId, $branch_id, $startDate = null, $endDate = null)
     {
         // Default ke hari ini jika tidak diberikan range tanggal
         if (!$startDate || !$endDate) {
             $startDate = $endDate = date('Y-m-d');
         }
-
-        // Buat bagian filter branch jika diberikan daftar cabang
-        $branchFilterSql = '';
-        if (!empty($branchIdList)) {
-            $placeholders = implode(',', array_fill(0, count($branchIdList), '?'));
-            $branchFilterSql = "AND tr.branch_id IN ($placeholders)";
+    
+        // Handle branch filter logic
+        if ($branch_id === null) {
+            // If no branch_id is provided, don't add any filter
+            $branchFilterSql = "";
+        } else {
+            // If branch_id is provided, add the condition to filter by branch_id
+            $branchFilterSql = "AND tr.branch_id = $branch_id";
         }
-
+    
         // SQL utama sesuai instruksi Bos
         $sql = "
             SELECT 
@@ -170,17 +172,15 @@ class Mdl_transaction extends BaseModel
             JOIN currencies c ON c.id = tl.currency_id
             JOIN branches b ON b.id = tr.branch_id
             WHERE tr.tenant_id = ?
-                AND DATE(tr.created_at) BETWEEN ? AND ?
+                AND DATE(tr.created_at) >= ? 
+                AND DATE(tr.created_at) <= ?
                 $branchFilterSql
             GROUP BY tr.branch_id, tl.currency_id
             ORDER BY b.name ASC, c.code ASC
         ";
-
-        // Gabungkan parameter
-        $params = array_merge([$tenantId, $startDate, $endDate], $branchIdList);
-
-        return $this->db->query($sql, $params)->getResultArray();
+        return $this->db->query($sql, [$tenantId, $startDate, $endDate])->getResultArray();
     }
+
 
     // public function getCurrencySummaryRaw($tenantId, $startDate = null, $endDate = null, $branchIdList = [])
     // {
