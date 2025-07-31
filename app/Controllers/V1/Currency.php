@@ -53,35 +53,21 @@ class Currency extends BaseApiController
     public function rekapCurrencyPenukaran()
     {
         $tenantId = auth_tenant_id();
-        $request = $this->request->getJSON(true);
+        $data = $this->request->getJSON();
 
         // Ambil range tanggal dari request (default: hari ini)
         $today = date('Y-m-d');
-        $startDate = $request['start_date'] ?? $today;
-        $endDate = $request['end_date'] ?? $today;
-
+        $startDate = $data->start_date ?? $today;
+        $endDate = $data->end_date ?? $today;
         // Ambil cabang yang dipilih
-        $branchName = $request['branch'] ?? null;
-
-        // Ambil daftar branch_id untuk tenant
-        $branchIdList = [];
-        if ($branchName) {
-            $branchId = $this->branchModel->getBranchIdByName($branchName);
-            if ($branchId) {
-                $branchIdList = [$branchId];
-            }
-        } else {
-            $branches = $this->branchModel->where('tenant_id', $tenantId)->where('is_active', 1)->findAll();
-            $branchIdList = array_column($branches, 'id');
-        }
+        $branchid = $data->branch_id ?? null;
 
         // Query ke model
-        $data = $this->transactionModel->getCurrencySummaryRaw($tenantId, $startDate, $endDate, $branchIdList);
+        $data = $this->transactionModel->getCurrencySummaryRaw($tenantId, $branchid, $startDate, $endDate);
 
         // Format response
         $response = [
             'Range Date' => $startDate . ' - ' . $endDate,
-            'Branch' => $branchName ?? 'Semua Cabang',
             'Data' => $data
         ];
 
