@@ -249,20 +249,6 @@ class Mdl_transaction extends BaseModel
                     return $existing['id'];
                 }
             }
-            // 2. Cek apakah idempotency_key sudah ada (Query Builder)
-            // if (!empty($data['idempotency_key'])) {
-            //     $existing = $this->db->table($this->table)
-            //         ->select('id')
-            //         ->where('tenant_id', $data['tenant_id'])
-            //         ->where('idempotency_key', $data['idempotency_key'])
-            //         ->get()
-            //         ->getRowArray();
-
-            //     if ($existing && isset($existing['id'])) {
-            //         $this->reusedIdempotency = true; // ✅ Tandai kalau reused
-            //         return $existing['id'];
-            //     }
-            // }
 
             // 3. Insert transaction
             $this->db->table($this->table)->insert($data);
@@ -271,6 +257,25 @@ class Mdl_transaction extends BaseModel
             // 4. Make sure $detail is an array of arrays
             if (!isset($detail[0]) || !is_array($detail[0])) {
                 $detail = [$detail]; // wrap if it's a single row
+            }
+
+            // Filter detail yang amount_foreign > 0
+            $detail = array_filter($detail, function ($row) {
+                return isset($row['amount_foreign']) && floatval($row['amount_foreign']) > 0;
+            });
+
+            // Kalau semua 0, hentikan transaksi
+            // if (empty($detail)) {
+            //     $this->db->transRollback();
+            //     throw new \Exception("Transaksi gagal: Semua amount_foreign bernilai 0");
+            // }
+            // Kalau semua 0, hentikan transaksi dan kirim pesan error
+            if (empty($detail)) {
+                $this->db->transRollback();
+                return [
+                    'status' => 'error',
+                    'message' => 'Amount Foreign tidak boleh 0!'
+                ];
             }
 
             // 5. Add transaction_id to each detail row

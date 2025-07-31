@@ -21,7 +21,8 @@ class Mdl_exchange_rate extends BaseModel
     public function getAllExchangeRatesRaw($tenantId)
     {
         $sql = "SELECT
-                    er.id,             
+                    er.id,
+                    c.id AS curr_id_no,             
                     c.code AS currency_id, 
                     c.is_active,
                     er.buy_rate,
