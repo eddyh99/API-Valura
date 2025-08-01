@@ -3,12 +3,19 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_bank;
+use App\Models\Mdl_bank_settlement;
 use App\Controllers\BaseApiController;
 
 class Bank extends BaseApiController
 {
     protected $modelName = Mdl_bank::class;
     protected $format    = 'json';
+
+    protected $bankSettlementModel;
+    public function __construct()
+    {
+        $this->bankSettlementModel = new Mdl_bank_settlement();
+    }
 
     public function show_all_banks()
     {
@@ -108,4 +115,37 @@ class Bank extends BaseApiController
 
         return $this->respondDeleted(['message' => 'Bank berhasil di-nonaktifkan']);
     }
+
+    // Batas Bank & Bank-Settlement
+
+    public function create_settlement()
+    {
+        $data = $this->request->getJSON(true);
+
+        // Tambahan otomatis dari sistem
+        $data['tenant_id']   = auth_tenant_id();
+        $data['created_by']  = auth_user_id();
+        $data['created_at']  = date('Y-m-d H:i:s');
+
+        // Validasi input
+        $rules = [
+            'currency_id'     => 'required|integer',
+            'bank_name'       => 'required|string',
+            'account_number'  => 'required|string',
+            'amount_foreign'  => 'required|numeric|greater_than[0]',
+            'rate_used'       => 'required|numeric|greater_than[0]',
+            'transaction_date'=> 'required|valid_date[Y-m-d]'
+        ];
+
+        if (! $this->validate($rules)) {
+            return $this->failValidationErrors($this->validator->getErrors());
+        }
+
+        if (! $this->bankSettlementModel->insert($data)) {
+            return $this->failServerError('Gagal menambahkan data settlement.');
+        }
+
+        return $this->respondCreated(['message' => 'Settlement berhasil ditambahkan']);
+    }
+
 }
