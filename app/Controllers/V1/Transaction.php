@@ -103,9 +103,20 @@ class Transaction extends BaseApiController
         $transactionType  = strtoupper($data['transaction_type'] ?? '');
         $transactionDate  = $data['transaction_date'] ?? date('Y-m-d');
 
+        // ✅ Ambil idempotency_key dari Header
+        $idempKey = $this->request->getHeaderLine('Idempotency-Key');
+
+        // ✅ Jika kosong, kembalikan error
+        if (empty($idempKey)) {
+            // return $this->failValidationError('Idempotency Key wajib ada');
+            return $this->fail([
+                'error' => 'Idempotency Key wajib ada'
+            ], 400);
+        }
+
         $client = $data["client"];
         $client["tenant_id"] =  $tenantId;
-        
+
         $transaksi = array(
             "transaction_type"  => $transactionType,
             "branch_id"         => $branchId,
@@ -113,36 +124,93 @@ class Transaction extends BaseApiController
             "transaction_date"  => date("Y-m-d H:i:s"),
             "created_by"        => $userId,
             "created_at"        => date("Y-m-d H:i:s"),
-            "idempotency_key"   => $data["idempotency_key"]
+            "idempotency_key"   => $idempKey
         );
+
+        // $transactionId = $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
         
-        $transactionId= $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
+        $result = $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
+
+        // Jika insert gagal karena amount_foreign = 0
+        if (is_array($result) && isset($result['status']) && $result['status'] === 'error') {
+            return $this->fail([
+                'error' => $result['message']
+            ], 400);
+        }
+
+        $transactionId = $result;
 
         if (!$transactionId){
-             return $this->failNotFound('Transaksi gagal di tambahkan');
+            return $this->failNotFound('Transaksi gagal di tambahkan');
         }
 
-        // Cek apakah ID dari transaksi tersebut didapat dari reuse idempotency (bukan insert baru)
-        $reused = false;
-
-        if (!empty($data['idempotency_key'])) {
-            $reused = $this->transactionModel->isIdempotencyKeyReused();
-        }
+        $reused = $this->transactionModel->isIdempotencyKeyReused();
 
         if ($reused) {
             return $this->respond([
                 'message'         => 'Transaksi sudah pernah dilakukan',
                 'transaction_id'  => $transactionId,
-                'idemp_key'       => $data['idempotency_key']
+                'idemp_key'       => $idempKey
             ]);
         } else {
             return $this->respondCreated([
                 'message'         => 'Transaksi baru berhasil disimpan',
                 'transaction_id'  => $transactionId,
-                'idemp_key'       => $data['idempotency_key']
+                'idemp_key'       => $idempKey
             ]);
         }
     }
+    // public function create()
+    // {
+    //     $data = $this->request->getJSON(true);
+
+    //     $tenantId         = auth_tenant_id();
+    //     $userId           = auth_user_id();
+    //     $payload          = decode_jwt_payload();
+    //     $branchId         = $payload->branch_id ?? null;
+    //     $transactionType  = strtoupper($data['transaction_type'] ?? '');
+    //     $transactionDate  = $data['transaction_date'] ?? date('Y-m-d');
+
+    //     $client = $data["client"];
+    //     $client["tenant_id"] =  $tenantId;
+        
+    //     $transaksi = array(
+    //         "transaction_type"  => $transactionType,
+    //         "branch_id"         => $branchId,
+    //         "tenant_id"         => $tenantId,
+    //         "transaction_date"  => date("Y-m-d H:i:s"),
+    //         "created_by"        => $userId,
+    //         "created_at"        => date("Y-m-d H:i:s"),
+    //         "idempotency_key"   => $data["idempotency_key"]
+    //     );
+        
+    //     $transactionId= $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
+
+    //     if (!$transactionId){
+    //          return $this->failNotFound('Transaksi gagal di tambahkan');
+    //     }
+
+    //     // Cek apakah ID dari transaksi tersebut didapat dari reuse idempotency (bukan insert baru)
+    //     $reused = false;
+
+    //     if (!empty($data['idempotency_key'])) {
+    //         $reused = $this->transactionModel->isIdempotencyKeyReused();
+    //     }
+
+    //     if ($reused) {
+    //         return $this->respond([
+    //             'message'         => 'Transaksi sudah pernah dilakukan',
+    //             'transaction_id'  => $transactionId,
+    //             'idemp_key'       => $data['idempotency_key']
+    //         ]);
+    //     } else {
+    //         return $this->respondCreated([
+    //             'message'         => 'Transaksi baru berhasil disimpan',
+    //             'transaction_id'  => $transactionId,
+    //             'idemp_key'       => $data['idempotency_key']
+    //         ]);
+    //     }
+    // }
 
     public function update($id = null)
     {
