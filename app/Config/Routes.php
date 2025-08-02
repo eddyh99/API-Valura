@@ -110,6 +110,8 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
 
     $routes->get('bank', 'V1\Bank::show_all_banks');
     $routes->get('bank/(:num)', 'V1\Bank::showBank_ByID/$1');
+
+    $routes->post('bank-settlement', 'V1\Bank::create_settlement');
 });
 
 // Agent
