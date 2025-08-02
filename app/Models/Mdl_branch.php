@@ -33,16 +33,10 @@ class Mdl_branch extends BaseModel
 
     public function getAllBranchesRaw($tenantId)
     {
-        $sql = "SELECT
-                    b.id,
-                    b.name,
-                    b.address,
-                    b.phone, 
-                    b.is_active,
-                    t.max_branch
+        $sql = "SELECT b.*
                 FROM branches b
                 JOIN tenants t ON t.id = b.tenant_id
-                WHERE b.tenant_id = ? AND b.is_active = 1";
+                WHERE b.tenant_id = ? AND b.is_active = 1 AND t.is_active=1";
 
         return $this->db->query($sql, [$tenantId])->getResultArray();
     }

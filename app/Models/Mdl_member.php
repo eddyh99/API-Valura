@@ -171,11 +171,16 @@ class Mdl_member extends BaseModel
 
     public function getUserWithRole($username)
     {
-        return $this->select('users.*, roles.name AS role_name, roles.permissions')
-                    ->join('roles', 'roles.id = users.role_id', 'left')
-                    ->where('users.username', $username)
-                    ->where('users.is_active', 1)
-                    ->first();
+        $sql="SELECT us.*, ro.name AS role_name, ro.permissions, te.*
+                FROM users AS us INNER JOIN roles AS ro ON us.role_id=ro.id
+                INNER JOIN tenants te ON te.id=us.tenant_id
+                WHERE us.username=?
+                AND us.is_active=1
+                AND ro.is_active=1
+                AND te.is_active=1
+        ";
+        
+        return $this->db->query($sql,$username)->getRowArray();
     }
     
     public function getUserWithIDRaw($uid,$tenant_id,$username){
@@ -205,12 +210,14 @@ class Mdl_member extends BaseModel
 
     public function isLocked($username)
     {
-        $retry = $this->db->table($this->retryTable)
-            ->where('username', $username)
-            ->get()
-            ->getRow();
+        $user = $this->getUserWithRole($username);
+        if ($user) {
+            $retry = $this->db->table($this->retryTable)
+                ->where('users_id', $user["id"])
+                ->get()
+                ->getRow();
+        }
 
-        if (!$retry) return false;
 
         if ($retry->attempts >= $this->maxRetry && strtotime($retry->last_attempt) + $this->retryTimeout > time()) {
             return true;
@@ -221,27 +228,30 @@ class Mdl_member extends BaseModel
 
     public function incrementRetry($username)
     {
-        $builder = $this->db->table($this->retryTable);
-        $existing = $builder->where('username', $username)->get()->getRow();
-
-        if ($existing) {
-            $builder->where('username', $username)
-                ->update([
-                    'attempts' => $existing->attempts + 1,
-                    'last_attempt' => date('Y-m-d H:i:s')
-                ]);
-        } else {
-            $builder->insert([
-                'username' => $username,
-                'attempts' => 1,
-                'last_attempt' => date('Y-m-d H:i:s')
-            ]);
-        }
+        $last = date("Y-m-d H:i:s");
+        $sql="INSERT INTO login_retries (users_id, attempts, last_attempt)
+                SELECT us.id, 1, ?
+                FROM users us
+                JOIN tenants te ON te.id = us.tenant_id
+                WHERE us.username = ?
+                ON DUPLICATE KEY UPDATE
+                    attempts = attempts + 1,
+                    last_attempt = ?
+        ";
+        $this->db->query($sql,[$last,$username,$last]);
     }
 
     public function resetRetry($username)
     {
-        $this->db->table($this->retryTable)->where('username', $username)->delete();
+        $user = $this->getUserWithRole($username);
+        if ($user) {
+            $this->db->table('login_retries')
+                ->where('users_id', $user['id'])
+                ->update([
+                    'attempts'      => 0,
+                    'last_attempt'  => null
+                ]);
+        }
     }
 
     public function logLoginAttempt($username, $ip, $status, $message)

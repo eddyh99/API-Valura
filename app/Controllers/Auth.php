@@ -180,12 +180,9 @@ class Auth extends BaseApiController
         }
 
         $user = $this->member->getUserWithRole($username);
-
-        // Catat login gagal (sementara)
-        $this->member->logLoginAttempt($username, $ip, 'FAILED', 'Invalid credentials');
-        $this->member->incrementRetry($username);
-
         if (!$user || !password_verify($password, $user['password_hash'])) {
+            $this->member->logLoginAttempt($username, $ip, 'FAILED', 'Invalid credentials');
+            $this->member->incrementRetry($username);
             return $this->failUnauthorized('Invalid username or password');
         }
 
@@ -238,6 +235,7 @@ class Auth extends BaseApiController
                 'id'          => $user['id'],
                 'username'    => $user['username'],
                 'branch_id'   => $user["branch_id"],
+                'max_branch'=> $user["max_branch"],
                 'role'        => $user['role_name'],
                 'permissions' => json_decode($user['permissions']) // decode dari JSON
             ]
@@ -297,6 +295,7 @@ class Auth extends BaseApiController
                     'username'    => $user['username'],
                     'branch_id'   => $user["branch_id"],
                     'role'        => $user['role_name'],
+                    'max_branch'  => $user["max_branch"],
                     'permissions' => json_decode($user['permissions'])
                 ]
             ]);

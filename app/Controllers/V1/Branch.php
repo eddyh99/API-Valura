@@ -22,20 +22,9 @@ class Branch extends BaseApiController
 
         $branches = $this->model->getAllBranchesRaw($tenantId);
 
-        // Asumsikan semua baris punya nilai max_branch sama (ambil dari baris pertama saja)
-        $maxBranch = $branches[0]['max_branch'] ?? null;
-        $currentBranchCount = count($branches);
-
-        // Opsional: hilangkan field 'max_branch' dari setiap data cabang
-        foreach ($branches as &$b) {
-            unset($b['max_branch']);
-        }
-
         return $this->respond([
             'status' => true,
             'data' => $branches,
-            'max_branch' => $maxBranch,
-            'current_branch_count' => $currentBranchCount
         ]);
     }
 
