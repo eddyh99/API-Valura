@@ -161,7 +161,7 @@ class Mdl_transaction extends BaseModel
             $branchFilterSql = "AND tr.branch_id = $branch_id";
         }
     
-        // SQL utama sesuai instruksi Bos
+        // SQL utama
         $sql = "
             SELECT 
                 b.name AS branch,

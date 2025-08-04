@@ -99,7 +99,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->delete('transaction/(:num)', 'V1\Transaction::delete/$1');
     $routes->get('transaction/daily', 'V1\Transaction::showDailyTransaction');
 
-    $routes->get('report/client', 'V1\Transaction::showClientRecap');
+    $routes->post('client/recap', 'V1\Transaction::showClientRecap');
 });
 
 // Bank
@@ -131,9 +131,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->delete('client/(:num)', 'V1\Client::delete/$1');
 
     $routes->get('client', 'V1\Client::show_all_clients');
-    $routes->get('client/(:num)', 'V1\Client::showClient_ByID/$1');
-
-    
+    $routes->get('client/(:num)', 'V1\Client::showClient_ByID/$1');    
 });
 
 // Bank Deposit (Penukaran)

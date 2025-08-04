@@ -31,7 +31,7 @@ class Mdl_bank extends BaseModel
                     is_active
                 FROM banks
                 WHERE tenant_id = ? AND is_active = 1
-                ORDER BY name ASC";
+                ORDER BY id ASC";
 
         return $this->db->query($sql, [$tenantId])->getResultArray();
     }

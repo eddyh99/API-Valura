@@ -19,24 +19,24 @@ class Transaction extends BaseApiController
     {
         $this->transactionModel = new Mdl_transaction();
         $this->clientModel      = new Mdl_client();
+        $this->branchModel      = new Mdl_branch();
     }
 
     // Show Client Data by Date & Branch
     public function showClientRecap()
     {
         $tenantId = auth_tenant_id();
-        $branchId = $this->request->getVar('branch_id');
-        $dateRange = $this->request->getVar('range_date'); // e.g. "28 Jul 2025 - 29 Jul 2025"
+        $data = $this->request->getJSON();
 
-        if ($dateRange) {
-            [$start, $end] = explode(' - ', $dateRange);
-            $start = date('Y-m-d', strtotime($start));
-            $end = date('Y-m-d', strtotime($end));
-        } else {
-            $start = $end = date('Y-m-d');
-        }
+        // Default: hari ini
+        $today = date('Y-m-d');
+        $startDate = isset($data->start_date) ? $data->start_date : $today;
+        $endDate = isset($data->end_date) ? $data->end_date : $today;
 
+        // Default: semua cabang
+        $branchId = $data->branch_id ?? null;
         $branchName = 'Semua Cabang';
+
         if ($branchId) {
             $branch = $this->branchModel->find($branchId);
             if ($branch) {
@@ -44,14 +44,45 @@ class Transaction extends BaseApiController
             }
         }
 
-        $data = $this->transactionModel->getClientRecapRaw($tenantId, $branchId, $start, $end);
+        $clientData = $this->transactionModel->getClientRecapRaw($tenantId, $branchId, $startDate, $endDate);
 
         return $this->respond([
-            'Range Date' => date('d-m-Y', strtotime($start)) . ' - ' . date('d-m-Y', strtotime($end)),
+            'Range Date' => date('d-m-Y', strtotime($startDate)) . ' - ' . date('d-m-Y', strtotime($endDate)),
             'Branch'     => $branchName,
-            'Data'       => $data
+            'Data'       => $clientData
         ]);
     }
+
+    // public function showClientRecap()
+    // {
+    //     $tenantId = auth_tenant_id();
+    //     $branchId = $this->request->getVar('branch_id');
+    //     $dateRange = $this->request->getVar('range_date'); // e.g. "28 Jul 2025 - 29 Jul 2025"
+
+    //     if ($dateRange) {
+    //         [$start, $end] = explode(' - ', $dateRange);
+    //         $start = date('Y-m-d', strtotime($start));
+    //         $end = date('Y-m-d', strtotime($end));
+    //     } else {
+    //         $start = $end = date('Y-m-d');
+    //     }
+
+    //     $branchName = 'Semua Cabang';
+    //     if ($branchId) {
+    //         $branch = $this->branchModel->find($branchId);
+    //         if ($branch) {
+    //             $branchName = $branch['name'];
+    //         }
+    //     }
+
+    //     $data = $this->transactionModel->getClientRecapRaw($tenantId, $branchId, $start, $end);
+
+    //     return $this->respond([
+    //         'Range Date' => date('d-m-Y', strtotime($start)) . ' - ' . date('d-m-Y', strtotime($end)),
+    //         'Branch'     => $branchName,
+    //         'Data'       => $data
+    //     ]);
+    // }
 
     // Show Transaction by ID
     public function showTransaction_ByID($id = null)
@@ -128,7 +159,7 @@ class Transaction extends BaseApiController
         );
 
         // $transactionId = $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
-        
+
         $result = $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
 
         // Jika insert gagal karena amount_foreign = 0
