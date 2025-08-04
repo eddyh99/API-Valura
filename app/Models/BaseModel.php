@@ -12,16 +12,14 @@ class BaseModel extends Model
     protected $userId;
     protected $tenantId;
     protected $ipAddress;
-
-    public function __construct()
+    
+    public function setContext(array $context)
     {
-        parent::__construct();
-
-        $request = Services::request();
-
-        $this->ipAddress = $request->getIPAddress();
-        $this->userId = auth_user_id();     // Ambil dari helper
-        $this->tenantId = auth_tenant_id(); // Ambil dari helper
+        $this->userId   = $context['user_id'] ?? null;
+        $this->tenantId = $context['tenant_id'] ?? null;
+        $this->ipAddress = $context['ip_address'] ?? null;
+    
+        return $this;
     }
 
     public function insert($data = null, bool $returnID = true)

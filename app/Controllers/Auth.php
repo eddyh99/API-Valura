@@ -156,6 +156,7 @@ class Auth extends BaseApiController
     
     public function postLogin()
     {
+        $this->member->setContext(current_context());
         $validation = $this->validation;
         $validation->setRules([
             'username'    => 'required',

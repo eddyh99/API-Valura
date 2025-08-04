@@ -17,12 +17,6 @@ class Mdl_branch extends BaseModel
     protected $useTimestamps = false;
     protected $auditEnabled = true;
 
-    // Raw Query
-    public function __construct()
-    {
-        parent::__construct();
-        $this->tenants = new Mdl_tenant();
-    }
 
     public function getBranchNameById($id)
     {
@@ -56,11 +50,61 @@ class Mdl_branch extends BaseModel
         return $this->db->query($sql, [$tenantId, $branchId])->getRowArray();
     }
 
-    public function getBranchIdByName(string $name)
+    public function getBranchIdByName($name)
     {
-        $sql = "SELECT id FROM branches WHERE name = :name: AND is_active = 1";
-        $result = $this->db->query($sql, ['name' => $name])->getRow();
+        $sql = "SELECT id FROM branches WHERE name = ? AND is_active = 1";
+        $result = $this->db->query($sql, $name)->getRow();
         return $result ? $result->id : null;
     }
+    
+    public function getCountBranch($tenantId){
+        $sql = "SELECT count(1) as branch, te.max_branch 
+                FROM branches br INNER JOIN tenants te 
+                ON br.tenant_id=te.id 
+                WHERE te.is_active=1 AND br.is_active=1 AND te.id=?";
+        $query = $this->db->query($sql,$tenantId);
+        return $query->getRow();
+    }
+
+    public function insert_branch($data){
+        $branch = $this->db->table("branches");
+        if (!$branch->insert($data)){
+            $error = (object) [
+                "status"  => false,
+                "message" => $this->db->error()
+            ];
+        }
+
+        $error = (object) [
+            "status"  => true,
+            "message" => []
+        ];
+        
+        return $error;
+    }
+    
+    public function update_branch($id, $data){
+        $branch = $this->db->table("branches");
+        $branch->where($this->primaryKey);
+        $branch->update($data);
+        
+        $success =  $this->db->affectedRows() > 0;
+        $error = (object) [
+            "status"  => $success,
+            "message" => $success ? [] : $this->db->error()
+        ];
+    
+        return $error;
+    }
+    
+    public function delete_branch($id){
+        $branch = $this->db->table("branches");
+        $branch->set('is_active', 0)
+            ->where($this->primaryKey, $id)
+            ->update();
+        return $this->db->affectedRows() > 0 ? true:false;
+    }
+    
+    
     // Batas Bawah Raw Query
 }

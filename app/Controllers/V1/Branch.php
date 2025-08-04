@@ -3,11 +3,11 @@
 namespace App\Controllers\V1;
 
 use App\Models\Mdl_branch;
+use App\Models\Mdl_tenant;
 use App\Controllers\BaseApiController;
 
 class Branch extends BaseApiController
 {
-    protected $modelName = Mdl_branch::class;
     protected $format    = 'json';
     protected $branchModel;
 
@@ -18,9 +18,7 @@ class Branch extends BaseApiController
 
     public function show_all_branches()
     {
-        $tenantId = auth_tenant_id();
-
-        $branches = $this->model->getAllBranchesRaw($tenantId);
+        $branches = $this->branchModel->getAllBranchesRaw($this->tenantId);
 
         return $this->respond([
             'status' => true,
@@ -30,9 +28,8 @@ class Branch extends BaseApiController
 
     public function showBranch_ByID($id = null)
     {
-        $tenantId = auth_tenant_id();
 
-        $branch = $this->branchModel->getBranchByIdRaw($tenantId, $id);
+        $branch = $this->branchModel->getBranchByIdRaw($this->tenantId, $id);
 
         return $this->respond([
             'status' => true,
@@ -42,36 +39,55 @@ class Branch extends BaseApiController
 
     public function create()
     {
+        $validation = $this->validation;
+        $validation->setRules([
+            'name'      => [
+                'label' => 'Nama Cabang',
+                'rules' => 'required|trim|max_length[100]|alpha_numeric_space',
+                'errors' => [
+                    'required' => '{field} wajib diisi.',
+                    'alpha_numeric_space' => '{field} anya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'address'   => [
+                'label' => 'Alamat',
+                'rules' => 'trim|max_length[255]|alpha_numeric_space',
+                'errors' => [
+                    'alpha_numeric_space' => '{field} anya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'phone'   => [
+                'label' => 'Nomor Telepon',
+                'rules' => 'required|regex_match[/^((\+62|62|0)8[1-9][0-9]{6,9}|0[2-9][0-9]{1,3}[0-9]{5,8})$/]',
+                'errors' => [
+                    'required' => '{field} wajib diisi.',
+                    'regex_match' => '{field} tidak valid. Masukkan nomor HP atau telepon rumah yang benar.',
+                ]
+            ],
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
+        }
+        
         $data = $this->request->getJSON(true);
 
-        $tenantId = auth_tenant_id();
-
-        // Load model tenant untuk cek max_branch
-        $mdlTenant = new \App\Models\Mdl_tenant();
-        $tenant = $mdlTenant->find($tenantId);
-
-        if (!$tenant) {
+        $tenant = $this->branchModel->getCountBranch($this->tenantId);
+        if (empty($tenant)){
             return $this->failNotFound('Tenant tidak ditemukan.');
         }
-
-        $maxBranch = (int) $tenant['max_branch'];
-
-        // Hitung jumlah branch aktif tenant ini
-        $currentBranchCount = $this->model
-            ->where('tenant_id', $tenantId)
-            ->where('is_active', 1)
-            ->countAllResults();
-
-        if ($currentBranchCount >= $maxBranch) {
-            return $this->failForbidden("MAX BRANCH: User dengan Tenant ID {$tenantId} hanya bisa menambahkan {$maxBranch} cabang saja.");
+        
+        if ($tenant->branch>=$tenant->max_branch){
+            return $this->failForbidden("Max Branch untuk {$this->tenantId} hanya {$maxBranch} cabang saja.");
         }
-
-        $data['tenant_id']  = $tenantId;
+        
+        $data['tenant_id']  = $this->tenantId;
         $data['created_by'] = auth_user_id();
         $data['is_active']  = 1;
 
-        if (!$this->model->insert($data)) {
-            return $this->failValidationErrors($this->model->errors());
+        $branch = $this->branchModel->insert_branch($data);
+        if (!$branch->status) {
+            return $this->failValidationErrors($branch->message);
         }
 
         return $this->respondCreated(['message' => 'Branch berhasil ditambahkan']);
@@ -79,14 +95,45 @@ class Branch extends BaseApiController
 
     public function update($id = null)
     {
-        $data = $this->request->getJSON(true);
-
-        if (!$this->model->where('is_active', 1)->find($id)) {
-            return $this->failNotFound('Branch tidak ditemukan atau sudah dihapus');
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Branch tidak valid');
         }
 
-        if (!$this->model->update($id, $data)) {
-            return $this->failValidationErrors($this->model->errors());
+        $validation = $this->validation;
+        $validation->setRules([
+            'name'      => [
+                'label' => 'Nama Cabang',
+                'rules' => 'required|trim|max_length[100]|alpha_numeric_space',
+                'errors' => [
+                    'required' => '{field} wajib diisi.',
+                    'alpha_numeric_space' => '{field} anya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'address'   => [
+                'label' => 'Alamat',
+                'rules' => 'trim|max_length[255]|alpha_numeric_space',
+                'errors' => [
+                    'alpha_numeric_space' => '{field} anya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'phone'   => [
+                'label' => 'Nomor Telepon',
+                'rules' => 'required|regex_match[/^((\+62|62|0)8[1-9][0-9]{6,9}|0[2-9][0-9]{1,3}[0-9]{5,8})$/]',
+                'errors' => [
+                    'required' => '{field} wajib diisi.',
+                    'regex_match' => '{field} tidak valid. Masukkan nomor HP atau telepon rumah yang benar.',
+                ]
+            ],
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
+        }
+
+        $data = $this->request->getJSON(true);
+        $branch = $this->branchModel->update_branch($id, $data);
+        if (!$branch->status) {
+            return $this->failValidationErrors($branch->message);
         }
 
         return $this->respond(['message' => 'Branch berhasil diupdate']);
@@ -94,17 +141,14 @@ class Branch extends BaseApiController
 
     public function delete($id = null)
     {
-        $branch = $this->model->where('is_active', 1)->find($id);
-
-        if (!$branch) {
-            return $this->failNotFound('Branch tidak ditemukan atau sudah dihapus');
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Branch tidak valid');
         }
-
-        // Soft delete: set is_active = 0
-        if (!$this->model->update($id, ['is_active' => 0])) {
-            return $this->failServerError('Gagal melakukan soft delete');
+        
+        $branch = $this->branchModel->delete_branch($id);
+        if (!$branch){
+            return $this->failServerError('Branch Gagal di hapus/sudah terhapus');
         }
-
-        return $this->respondDeleted(['message' => 'Branch berhasil di-nonaktifkan']);
+        return $this->respondDeleted(['message' => 'Branch berhasil di hapus']);
     }
 }
