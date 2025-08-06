@@ -7,15 +7,19 @@ use App\Controllers\BaseApiController;
 
 class ExchangeRate extends BaseApiController
 {
-    protected $modelName = Mdl_exchange_rate::class;
-    protected $format    = 'json';
+    // protected $modelName = Mdl_exchange_rate::class;
+    protected $format = 'json';
+    protected $exchangeRateModel;
+
+    public function __construct()
+    {
+        $this->exchangeRateModel = new Mdl_exchange_rate();
+    }
 
     // Show All Exchange Rates
     public function show_all_exchangeRates()
     {
-        $tenantId = auth_tenant_id();
-
-        $exchange_rates = $this->model->getAllExchangeRatesRaw($tenantId);
+        $exchange_rates = $this->exchangeRateModel->getAllExchangeRatesRaw($this->tenantId);
 
         return $this->respond([
             'status' => true,
@@ -26,9 +30,7 @@ class ExchangeRate extends BaseApiController
     // Show Exchange Rate by ID
     public function showExchangeRate_ByID($id = null)
     {
-        $tenantId = auth_tenant_id();
-
-        $exchange_rate = $this->model->getExchangeRateByIdRaw($tenantId, $id);
+        $exchange_rate = $this->exchangeRateModel->getExchangeRateByIdRaw($this->tenantId, $id);
 
         return $this->respond([
             'status' => true,
@@ -38,15 +40,62 @@ class ExchangeRate extends BaseApiController
 
     public function create()
     {
+        $validation = $this->validation;
+        $validation->setRules([
+            'currency_id' => [
+                'label'  => 'Mata Uang',
+                'rules'  => 'required|is_natural_no_zero',
+                'errors' => [
+                    'required'           => '{field} wajib diisi.',
+                    'is_natural_no_zero' => '{field} tidak valid.'
+                ]
+            ],
+            'buy_rate' => [
+                'label'  => 'Rate Beli',
+                'rules'  => 'required|numeric|greater_than[0]',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'numeric'      => '{field} harus berupa angka.',
+                    'greater_than' => '{field} harus lebih besar dari 0.'
+                ]
+            ],
+            'sell_rate' => [
+                'label'  => 'Rate Jual',
+                'rules'  => 'required|numeric|greater_than[0]',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'numeric'      => '{field} harus berupa angka.',
+                    'greater_than' => '{field} harus lebih besar dari 0.'
+                ]
+            ]
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
+        }
+
         $data = $this->request->getJSON(true);
 
-        $data['tenant_id']   = auth_tenant_id();
-        $data['created_by']  = auth_user_id();
-        $data['rate_date']   = date('Y-m-d');
-        $data['is_active']   = 1;
+        $currencyId = $data['currency_id'];
+        $today      = date('Y-m-d');
 
-        if (!$this->model->insert($data)) {
-            return $this->failValidationErrors($this->model->errors());
+        // Cek apakah sudah ada rate untuk currency tersebut
+        $alreadyExists = $this->exchangeRateModel->checkExistingRateTodayRaw($this->tenantId, $currencyId);
+        if ($alreadyExists) {
+            return $this->failValidationErrors([
+                'currency_id' => "Currency dengan ID {$currencyId} sudah ditetapkan rate-nya."
+            ]);
+        }
+
+        $data['tenant_id']  = $this->tenantId;
+        $data['created_by'] = $this->userId;
+        $data['is_active']  = 1;
+        $data['rate_date']  = $today;
+
+        $rate = $this->exchangeRateModel->setContext(current_context())->insert_exchangeRate($data);
+
+        if (!$rate->status) {
+            return $this->failValidationErrors($rate->message);
         }
 
         return $this->respondCreated(['message' => 'Exchange rate berhasil ditambahkan']);
@@ -54,14 +103,49 @@ class ExchangeRate extends BaseApiController
 
     public function update($id = null)
     {
-        $data = $this->request->getJSON(true);
-
-        if (!$this->model->where('is_active', 1)->find($id)) {
-            return $this->failNotFound('Exchange rate tidak ditemukan atau sudah dihapus');
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Exchange rate tidak valid');
         }
 
-        if (!$this->model->update($id, $data)) {
-            return $this->failValidationErrors($this->model->errors());
+        $validation = $this->validation;
+        $validation->setRules([
+            'currency_id' => [
+                'label'  => 'Mata Uang',
+                'rules'  => 'required|is_natural_no_zero',
+                'errors' => [
+                    'required'           => '{field} wajib diisi.',
+                    'is_natural_no_zero' => '{field} tidak valid.'
+                ]
+            ],
+            'buy_rate' => [
+                'label'  => 'Rate Beli',
+                'rules'  => 'required|numeric|greater_than[0]',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'numeric'      => '{field} harus berupa angka.',
+                    'greater_than' => '{field} harus lebih besar dari 0.'
+                ]
+            ],
+            'sell_rate' => [
+                'label'  => 'Rate Jual',
+                'rules'  => 'required|numeric|greater_than[0]',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'numeric'      => '{field} harus berupa angka.',
+                    'greater_than' => '{field} harus lebih besar dari 0.'
+                ]
+            ]
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
+        }
+
+        $data = $this->request->getJSON(true);
+
+        $exchangeRate = $this->exchangeRateModel->setContext(current_context())->update_exchangeRate($id, $data);
+        if (!$exchangeRate->status) {
+            return $this->failValidationErrors($exchangeRate->message);
         }
 
         return $this->respond(['message' => 'Exchange rate berhasil diupdate']);
@@ -69,17 +153,14 @@ class ExchangeRate extends BaseApiController
 
     public function delete($id = null)
     {
-        $rate = $this->model->where('is_active', 1)->find($id);
-
-        if (!$rate) {
-            return $this->failNotFound('Exchange rate tidak ditemukan atau sudah dihapus');
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Exchange rate tidak valid');
         }
-
-        // Soft delete: set is_active = 0
-        if (!$this->model->update($id, ['is_active' => 0])) {
-            return $this->failServerError('Gagal melakukan soft delete');
+        
+        $exchangeRate = $this->exchangeRateModel->setContext(current_context())->delete_exchangeRate($id);
+        if (!$exchangeRate){
+            return $this->failServerError('Exchange rate gagal dihapus/sudah terhapus');
         }
-
-        return $this->respondDeleted(['message' => 'Exchange rate berhasil di-nonaktifkan']);
+        return $this->respondDeleted(['message' => 'Exchange rate berhasil dihapus']);
     }
 }

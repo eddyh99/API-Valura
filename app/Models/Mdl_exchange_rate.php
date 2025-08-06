@@ -60,7 +60,58 @@ class Mdl_exchange_rate extends BaseModel
 
         return $this->db->query($sql, [$exchangeRateId, $tenantId])->getRowArray();
     }
-    
+
+    public function insert_exchangeRate($data)
+    {
+        $id = $this->insert($data, true); // pakai method bawaan dari BaseModel
+
+        if (!$id) {
+            return (object) [
+                'status'  => false,
+                'message' => $this->errors(), // kalau pakai Validation bawaan Model
+            ];
+        }
+
+        return (object) [
+            'status'  => true,
+            'message' => [],
+            'id'      => $id,
+        ];
+    }
+
+    public function update_exchangeRate($id, $data)
+    {
+        $success = $this->update($id, $data); // <- pakai method bawaan Model
+
+        if (!$success) {
+            return (object)[
+                'status'  => false,
+                'message' => $this->errors() ?: $this->db->error(),
+            ];
+        }
+
+        return (object)[
+            'status'  => true,
+            'message' => [],
+        ];
+    }
+
+    public function delete_exchangeRate($id)
+    {
+        return $this->softDelete($id, ['is_active' => 0]);
+    }
+
+    public function checkExistingRateTodayRaw($tenantId, $currencyId)
+    {
+        $sql = "SELECT 1 FROM exchange_rates
+                WHERE tenant_id = ? AND currency_id = ? AND is_active = 1
+                LIMIT 1";
+        
+        $result = $this->db->query($sql, [$tenantId, $currencyId])->getRow();
+
+        return (bool) $result;
+    }
+
     // Tanpa JOIN dan AS
 
     // public function getAllExchangeRatesRaw($tenantId)

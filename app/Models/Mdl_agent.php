@@ -23,13 +23,7 @@ class Mdl_agent extends BaseModel
 
     public function getAllAgentsRaw($tenantId)
     {
-        $sql = "SELECT
-                    id,
-                    tenant_id, 
-                    name,
-                    address,
-                    phone,
-                    is_active
+        $sql = "SELECT *
                 FROM agents
                 WHERE tenant_id = ? AND is_active = 1
                 ORDER BY id ASC";
@@ -39,16 +33,51 @@ class Mdl_agent extends BaseModel
 
     public function getAgentByIdRaw($tenantId, $agentId)
     {
-        $sql = "SELECT
-                    id,
-                    name,
-                    address,
-                    phone,
-                    is_active
+        $sql = "SELECT *
                 FROM agents
                 WHERE id = ? AND tenant_id = ? AND is_active = 1
                 LIMIT 1";
 
         return $this->db->query($sql, [$agentId, $tenantId])->getRowArray();
+    }
+
+    public function insert_agent($data)
+    {
+        $id = $this->insert($data, true); // pakai method bawaan dari BaseModel
+
+        if (!$id) {
+            return (object) [
+                'status'  => false,
+                'message' => $this->errors(), // kalau pakai Validation bawaan Model
+            ];
+        }
+
+        return (object) [
+            'status'  => true,
+            'message' => [],
+            'id'      => $id,
+        ];
+    }
+
+    public function update_agent($id, $data)
+    {
+        $success = $this->update($id, $data); // <- pakai method bawaan Model
+
+        if (!$success) {
+            return (object)[
+                'status'  => false,
+                'message' => $this->errors() ?: $this->db->error(),
+            ];
+        }
+
+        return (object)[
+            'status'  => true,
+            'message' => [],
+        ];
+    }
+
+    public function delete_agent($id)
+    {
+        return $this->softDelete($id, ['is_active' => 0]);
     }
 }

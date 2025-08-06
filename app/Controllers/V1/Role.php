@@ -7,41 +7,19 @@ use App\Controllers\BaseApiController;
 
 class Role extends BaseApiController
 {
-    protected $modelName = Mdl_role::class;
     protected $format    = 'json';
+    // protected $modelName = Mdl_role::class;
+    protected $roleModel;
 
-
-
-    public function show_all_clients()
+    public function __construct()
     {
-        $tenantId = auth_tenant_id();
-        
-        $clients = $this->model->getAllClientsRaw($tenantId);
-
-        return $this->respond([
-            'status' => true,
-            'data'   => $clients
-        ]);
-    }
-
-    public function showClient_ByID($id = null)
-    {
-        $tenantId = auth_tenant_id();
-
-        $client = $this->model->getClientByIdRaw($tenantId, $id);
-
-        return $this->respond([
-            'status' => true,
-            'data'   => $client
-        ]);
+        $this->roleModel = new Mdl_role();
     }
 
     // Show All Roles
     public function show_all_roles()
     {
-        $tenantId = auth_tenant_id();
-
-        $roles = $this->model->getAllRolesRaw($tenantId);
+        $roles = $this->roleModel->getAllRolesRaw($this->tenantId);
 
         return $this->respond([
             'status' => true,
@@ -52,9 +30,8 @@ class Role extends BaseApiController
     // Show Role by ID
     public function showRole_ByID($id = null)
     {
-        $tenantId = auth_tenant_id();
 
-        $role = $this->model->getRoleByIdRaw($tenantId, $id);
+        $role = $this->roleModel->getRoleByIdRaw($this->tenantId, $id);
 
         return $this->respond([
             'status' => true,
@@ -64,12 +41,39 @@ class Role extends BaseApiController
 
     public function create()
     {
+        $validation = $this->validation;
+        $validation->setRules([
+            'name' => [
+                'label' => 'Nama Role',
+                'rules' => 'required|trim|max_length[50]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 50 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'permissions' => [
+                'label' => 'Permissions',
+                'rules' => 'required|valid_json',
+                'errors' => [
+                    'required'   => '{field} wajib diisi.',
+                    'valid_json' => '{field} harus berupa format JSON yang valid.',
+                ]
+            ],
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
+        }
+
         $data = $this->request->getJSON(true);
-        $data['tenant_id'] = auth_tenant_id();
+
+        $data['tenant_id'] = $this->tenantId;
         $data['is_active'] = 1;
 
-        if (!$this->model->insert($data)) {
-            return $this->failValidationErrors($this->model->errors());
+        $role = $this->roleModel->setContext(current_context())->insert_role($data);
+        if (!$role->status) {
+            return $this->failValidationErrors($role->message);
         }
 
         return $this->respondCreated(['message' => 'Role berhasil ditambahkan']);
@@ -77,14 +81,40 @@ class Role extends BaseApiController
 
     public function update($id = null)
     {
-        $data = $this->request->getJSON(true);
-
-        if (!$this->model->where('is_active', 1)->find($id)) {
-            return $this->failNotFound('Role tidak ditemukan atau sudah dihapus');
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Role tidak valid');
         }
 
-        if (!$this->model->update($id, $data)) {
-            return $this->failValidationErrors($this->model->errors());
+        $validation = $this->validation;
+        $validation->setRules([
+            'name' => [
+                'label' => 'Nama Role',
+                'rules' => 'required|trim|max_length[50]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 50 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'permissions' => [
+                'label' => 'Permissions',
+                'rules' => 'required|valid_json',
+                'errors' => [
+                    'required'   => '{field} wajib diisi.',
+                    'valid_json' => '{field} harus berupa format JSON yang valid.',
+                ]
+            ],
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
+        }
+
+        $data = $this->request->getJSON(true);
+        
+        $role = $this->roleModel->setContext(current_context())->update_role($id, $data);
+        if (!$role->status) {
+            return $this->failValidationErrors($role->message);
         }
 
         return $this->respond(['message' => 'Role berhasil diupdate']);
@@ -92,16 +122,14 @@ class Role extends BaseApiController
 
     public function delete($id = null)
     {
-        $role = $this->model->where('is_active', 1)->find($id);
-
-        if (!$role) {
-            return $this->failNotFound('Role tidak ditemukan atau sudah dihapus');
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Role tidak valid');
         }
-
-        if (!$this->model->update($id, ['is_active' => 0])) {
-            return $this->failServerError('Gagal melakukan soft delete pada role');
+        
+        $role = $this->roleModel->setContext(current_context())->delete_role($id);
+        if (!$role){
+            return $this->failServerError('Role gagal dihapus/sudah terhapus');
         }
-
-        return $this->respondDeleted(['message' => 'Role berhasil di-nonaktifkan']);
+        return $this->respondDeleted(['message' => 'Role berhasil dihapus']);
     }
 }

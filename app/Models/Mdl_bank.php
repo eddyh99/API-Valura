@@ -58,4 +58,45 @@ class Mdl_bank extends BaseModel
 
         return $this->db->query($sql, [$bankId, $tenantId])->getRowArray();
     }
+
+
+    public function insert_bank($data)
+    {
+        $id = $this->insert($data, true); // pakai method bawaan dari BaseModel
+
+        if (!$id) {
+            return (object) [
+                'status'  => false,
+                'message' => $this->errors(), // kalau pakai Validation bawaan Model
+            ];
+        }
+
+        return (object) [
+            'status'  => true,
+            'message' => [],
+            'id'      => $id,
+        ];
+    }
+
+    public function update_bank($id, $data)
+    {
+        $success = $this->update($id, $data); // <- pakai method bawaan Model
+
+        if (!$success) {
+            return (object)[
+                'status'  => false,
+                'message' => $this->errors() ?: $this->db->error(),
+            ];
+        }
+
+        return (object)[
+            'status'  => true,
+            'message' => [],
+        ];
+    }
+
+    public function delete_bank($id)
+    {
+        return $this->softDelete($id, ['is_active' => 0]);
+    }
 }

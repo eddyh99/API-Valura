@@ -8,20 +8,20 @@ use App\Controllers\BaseApiController;
 
 class Bank extends BaseApiController
 {
-    protected $modelName = Mdl_bank::class;
+    // protected $modelName = Mdl_bank::class;
     protected $format    = 'json';
-
+    protected $bankModel;
     protected $bankSettlementModel;
+
     public function __construct()
     {
+        $this->bankModel = new Mdl_bank();
         $this->bankSettlementModel = new Mdl_bank_settlement();
     }
 
     public function show_all_banks()
     {
-        $tenantId = auth_tenant_id();
-
-        $banks = $this->model->getAllBanksRaw($tenantId);
+        $banks = $this->bankModel->getAllBanksRaw($this->tenantId);
 
         return $this->respond([
             'status' => true,
@@ -31,9 +31,7 @@ class Bank extends BaseApiController
 
     public function showBank_ByID($id = null)
     {
-        $tenantId = auth_tenant_id();
-
-        $bank = $this->model->getBankByIdRaw($tenantId, $id);
+        $bank = $this->bankModel->getBankByIdRaw($this->tenantId, $id);
 
         return $this->respond([
             'status' => true,
@@ -43,25 +41,50 @@ class Bank extends BaseApiController
 
     public function create()
     {
-        $data = $this->request->getJSON(true);
+        $validation = $this->validation;
+        $validation->setRules([
+            'name' => [
+                'label'  => 'Nama Bank',
+                'rules'  => 'required|trim|max_length[100]|is_unique[banks.name,tenant_id,' . $this->tenantId . ']',
+                'errors' => [
+                    'required'   => '{field} wajib diisi.',
+                    'max_length' => '{field} maksimal 100 karakter.',
+                    'is_unique'  => '{field} sudah terdaftar.',
+                ]
+            ],
+            'account_no' => [
+                'label'  => 'Nomor Rekening',
+                'rules'  => 'required|trim|numeric|max_length[50]|is_unique[banks.account_no,tenant_id,' . $this->tenantId . ']',
+                'errors' => [
+                    'required'   => '{field} wajib diisi.',
+                    'numeric'    => '{field} harus berupa angka.',
+                    'max_length' => '{field} maksimal 50 karakter.',
+                    'is_unique'  => '{field} sudah terdaftar.',
+                ]
+            ],
+            'branch' => [
+                'label'  => 'Cabang Bank',
+                'rules'  => 'required|trim|max_length[100]',
+                'errors' => [
+                    'required'   => '{field} wajib diisi.',
+                    'max_length' => '{field} maksimal 100 karakter.',
+                ]
+            ],
+        ]);
 
-        $data['tenant_id']  = auth_tenant_id();
-        $data['created_by'] = auth_user_id();
-        $data['is_active']  = 1;
-        $data['created_at'] = date('Y-m-d H:i:s');
-
-        $rules = [
-            'name'       => 'required|string|max_length[100]',
-            'account_no' => 'permit_empty|string|max_length[50]',
-            'branch'     => 'permit_empty|string|max_length[100]',
-        ];
-
-        if (! $this->validate($rules)) {
-            return $this->failValidationErrors($this->validator->getErrors());
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
         }
 
-        if (!$this->model->insert($data)) {
-            return $this->failServerError('Gagal menambahkan data bank.');
+        $data = $this->request->getJSON(true);
+
+        $data['tenant_id']  = $this->tenantId;
+        $data['created_by'] = $this->userId;
+        $data['is_active']  = 1;
+
+        $bank = $this->bankModel->setContext(current_context())->insert_bank($data);
+        if (!$bank->status) {
+            return $this->failValidationErrors($bank->message);
         }
 
         return $this->respondCreated(['message' => 'Bank berhasil ditambahkan']);
@@ -69,32 +92,46 @@ class Bank extends BaseApiController
 
     public function update($id = null)
     {
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Bank tidak valid');
+        }
+
+        $validation = $this->validation;
+        $validation->setRules([
+            'name' => [
+                'label'  => 'Nama Bank',
+                'rules'  => 'required|trim|max_length[100]|is_unique[banks.name,tenant_id,' . $this->tenantId . ']',
+                'errors' => [
+                    'required'   => '{field} wajib diisi.',
+                    'max_length' => '{field} maksimal 100 karakter.',
+                    'is_unique'  => '{field} sudah terdaftar.',
+                ]
+            ],
+            'account_no' => [
+                'label'  => 'Nomor Rekening',
+                'rules'  => 'required|trim|numeric|max_length[50]|is_unique[banks.account_no,tenant_id,' . $this->tenantId . ']',
+                'errors' => [
+                    'required'   => '{field} wajib diisi.',
+                    'numeric'    => '{field} harus berupa angka.',
+                    'max_length' => '{field} maksimal 50 karakter.',
+                    'is_unique'  => '{field} sudah terdaftar.',
+                ]
+            ],
+            'branch' => [
+                'label'  => 'Cabang Bank',
+                'rules'  => 'required|trim|max_length[100]',
+                'errors' => [
+                    'required'   => '{field} wajib diisi.',
+                    'max_length' => '{field} maksimal 100 karakter.',
+                ]
+            ],
+        ]);
+
         $data = $this->request->getJSON(true);
 
-        $bank = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->first();
-
-        if (!$bank) {
-            return $this->failNotFound('Bank tidak ditemukan atau sudah dihapus');
-        }
-
-        $rules = [
-            'name'       => 'required|string|max_length[100]',
-            'account_no' => 'permit_empty|string|max_length[50]',
-            'branch'     => 'permit_empty|string|max_length[100]',
-        ];
-
-        if (! $this->validate($rules)) {
-            return $this->failValidationErrors($this->validator->getErrors());
-        }
-
-        $data['updated_by'] = auth_user_id();
-        $data['updated_at'] = date('Y-m-d H:i:s');
-
-        if (!$this->model->update($id, $data)) {
-            return $this->failServerError('Gagal mengupdate data bank.');
+        $bank = $this->bankModel->setContext(current_context())->update_bank($id, $data);
+        if (!$bank->status) {
+            return $this->failValidationErrors($bank->message);
         }
 
         return $this->respond(['message' => 'Bank berhasil diupdate']);
@@ -102,18 +139,15 @@ class Bank extends BaseApiController
 
     public function delete($id = null)
     {
-        $bank = $this->model->where('id', $id)->where('is_active', 1)->first();
-
-        if (!$bank) {
-            return $this->failNotFound('Bank tidak ditemukan atau sudah dihapus');
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Bank tidak valid');
         }
-
-        // Soft delete set is_active=0
-        if (!$this->model->update($id, ['is_active' => 0])) {
-            return $this->failServerError('Gagal melakukan soft delete');
+        
+        $bank = $this->bankModel->setContext(current_context())->delete_bank($id);
+        if (!$bank){
+            return $this->failServerError('Bank gagal dihapus/sudah terhapus');
         }
-
-        return $this->respondDeleted(['message' => 'Bank berhasil di-nonaktifkan']);
+        return $this->respondDeleted(['message' => 'Bank berhasil dihapus']);
     }
 
     // Batas Bank & Bank-Settlement

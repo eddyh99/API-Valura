@@ -7,14 +7,18 @@ use App\Controllers\BaseApiController;
 
 class Client extends BaseApiController
 {
-    protected $modelName = Mdl_client::class;
+    // protected $modelName = Mdl_client::class;
     protected $format    = 'json';
+    protected $clientModel;
+
+    public function __construct()
+    {
+        $this->clientModel = new Mdl_client();
+    }
 
     public function show_all_clients()
     {
-        $tenantId = auth_tenant_id();
-        
-        $clients = $this->model->getAllClientsRaw($tenantId);
+        $clients = $this->clientModel->getAllClientsRaw($this->tenantId);
 
         return $this->respond([
             'status' => true,
@@ -24,9 +28,7 @@ class Client extends BaseApiController
 
     public function showClient_ByID($id = null)
     {
-        $tenantId = auth_tenant_id();
-
-        $client = $this->model->getClientByIdRaw($tenantId, $id);
+        $client = $this->clientModel->getClientByIdRaw($this->tenantId, $id);
 
         return $this->respond([
             'status' => true,
@@ -36,28 +38,93 @@ class Client extends BaseApiController
 
     public function create()
     {
-        $data = $this->request->getJSON(true);
+        $validation = $this->validation;
+        $validation->setRules([
+            'name' => [
+                'label'  => 'Nama Lengkap',
+                'rules'  => 'required|trim|max_length[100]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 100 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'id_type' => [
+                'label'  => 'Tipe Identitas',
+                'rules'  => 'required|trim|max_length[20]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 20 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'id_number' => [
+                'label'  => 'Nomor Identitas',
+                'rules'  => 'required|trim|max_length[50]|alpha_numeric',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'max_length'   => '{field} maksimal 50 karakter.',
+                    'alpha_numeric'=> '{field} hanya boleh berisi huruf dan angka.',
+                ]
+            ],
+            'country' => [
+                'label'  => 'Negara',
+                'rules'  => 'required|trim|max_length[30]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 30 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'phone' => [
+                'label'  => 'Nomor Telepon',
+                'rules'  => 'required|regex_match[/^((\+62|62|0)8[1-9][0-9]{6,9}|0[2-9][0-9]{1,3}[0-9]{5,8})$/]',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'regex_match'  => '{field} tidak valid. Masukkan nomor HP atau telepon rumah yang benar.',
+                ]
+            ],
+            'email' => [
+                'label'  => 'Email',
+                'rules'  => 'required|trim|valid_email|max_length[100]',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'valid_email'  => '{field} tidak valid.',
+                    'max_length'   => '{field} maksimal 100 karakter.',
+                ]
+            ],
+            'address' => [
+                'label'  => 'Alamat',
+                'rules'  => 'required|trim|max_length[255]|alpha_numeric_space',
+                'errors' => [
+                    'required'            => '{field} wajib diisi.',
+                    'max_length'          => '{field} maksimal 255 karakter.',
+                    'alpha_numeric_space' => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'job' => [
+                'label' => 'Pekerjaan',
+                'rules' => 'required|trim|max_length[30]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 30 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+        ]);
 
-        $data['tenant_id']  = auth_tenant_id();
-        $data['is_active']  = 1;
-        $data['created_at'] = date('Y-m-d H:i:s');
-
-        $rules = [
-            'name'      => 'required|string|max_length[100]',
-            'id_type'   => 'permit_empty|string|max_length[20]',
-            'id_number' => 'permit_empty|string|max_length[50]',
-            'country'   => 'permit_empty|string|max_length[30]',
-            'phone'     => 'permit_empty|string|max_length[30]',
-            'email'     => 'permit_empty|valid_email|max_length[100]',
-            'address'   => 'permit_empty|string|max_length[255]',
-        ];
-
-        if (! $this->validate($rules)) {
-            return $this->failValidationErrors($this->validator->getErrors());
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
         }
 
-        if (!$this->model->insert($data)) {
-            return $this->failValidationErrors($this->model->errors());
+        $data = $this->request->getJSON(true);
+
+        $data['tenant_id'] = $this->tenantId;
+        $data['is_active'] = 1;
+
+        $client = $this->clientModel->setContext(current_context())->insert_client($data);
+        if (!$client->status) {
+            return $this->failValidationErrors($client->message);
         }
 
         return $this->respondCreated(['message' => 'Client berhasil ditambahkan']);
@@ -65,33 +132,94 @@ class Client extends BaseApiController
 
     public function update($id = null)
     {
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Client tidak valid');
+        }
+
+        $validation = $this->validation;
+        $validation->setRules([
+            'name' => [
+                'label'  => 'Nama Lengkap',
+                'rules'  => 'required|trim|max_length[100]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 100 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'id_type' => [
+                'label'  => 'Tipe Identitas',
+                'rules'  => 'required|trim|max_length[20]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 20 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'id_number' => [
+                'label'  => 'Nomor Identitas',
+                'rules'  => 'required|trim|max_length[50]|alpha_numeric',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'max_length'   => '{field} maksimal 50 karakter.',
+                    'alpha_numeric'=> '{field} hanya boleh berisi huruf dan angka.',
+                ]
+            ],
+            'country' => [
+                'label'  => 'Negara',
+                'rules'  => 'required|trim|max_length[30]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 30 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'phone' => [
+                'label'  => 'Nomor Telepon',
+                'rules'  => 'required|regex_match[/^((\+62|62|0)8[1-9][0-9]{6,9}|0[2-9][0-9]{1,3}[0-9]{5,8})$/]',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'regex_match'  => '{field} tidak valid. Masukkan nomor HP atau telepon rumah yang benar.',
+                ]
+            ],
+            'email' => [
+                'label'  => 'Email',
+                'rules'  => 'required|trim|valid_email|max_length[100]',
+                'errors' => [
+                    'required'     => '{field} wajib diisi.',
+                    'valid_email'  => '{field} tidak valid.',
+                    'max_length'   => '{field} maksimal 100 karakter.',
+                ]
+            ],
+            'address' => [
+                'label'  => 'Alamat',
+                'rules'  => 'required|trim|max_length[255]|alpha_numeric_space',
+                'errors' => [
+                    'required'            => '{field} wajib diisi.',
+                    'max_length'          => '{field} maksimal 255 karakter.',
+                    'alpha_numeric_space' => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+            'job' => [
+                'label' => 'Pekerjaan',
+                'rules' => 'required|trim|max_length[30]|alpha_numeric_space',
+                'errors' => [
+                    'required'             => '{field} wajib diisi.',
+                    'max_length'           => '{field} maksimal 30 karakter.',
+                    'alpha_numeric_space'  => '{field} hanya boleh berisi huruf, angka, dan spasi.',
+                ]
+            ],
+        ]);
+
+        if (!$validation->withRequest($this->request)->run()) {
+            return $this->failValidationErrors($validation->getErrors());
+        }
+
         $data = $this->request->getJSON(true);
 
-        $client = $this->model
-            ->where('id', $id)
-            ->where('is_active', 1)
-            ->first();
-
-        if (!$client) {
-            return $this->failNotFound('Client tidak ditemukan atau sudah dihapus');
-        }
-
-        $rules = [
-            'name'      => 'required|string|max_length[100]',
-            'id_type'   => 'permit_empty|string|max_length[20]',
-            'id_number' => 'permit_empty|string|max_length[50]',
-            'country'   => 'permit_empty|string|max_length[30]',
-            'phone'     => 'permit_empty|string|max_length[30]',
-            'email'     => 'permit_empty|valid_email|max_length[100]',
-            'address'   => 'permit_empty|string|max_length[255]',
-        ];
-
-        if (! $this->validate($rules)) {
-            return $this->failValidationErrors($this->validator->getErrors());
-        }
-
-        if (!$this->model->update($id, $data)) {
-            return $this->failServerError('Gagal mengupdate data client.');
+        $client = $this->clientModel->setContext(current_context())->update_client($id, $data);
+        if (!$client->status) {
+            return $this->failValidationErrors($client->message);
         }
 
         return $this->respond(['message' => 'Client berhasil diupdate']);
@@ -99,17 +227,14 @@ class Client extends BaseApiController
 
     public function delete($id = null)
     {
-        $client = $this->model->where('id', $id)->where('is_active', 1)->first();
-
-        if (!$client) {
-            return $this->failNotFound('Client tidak ditemukan atau sudah dihapus');
+        if (!filter_var($id, FILTER_VALIDATE_INT)) {
+            return $this->failValidationErrors('ID Client tidak valid');
         }
-
-        // Soft delete set is_active = 0
-        if (!$this->model->update($id, ['is_active' => 0])) {
-            return $this->failServerError('Gagal melakukan soft delete');
+        
+        $client = $this->clientModel->setContext(current_context())->delete_client($id);
+        if (!$client){
+            return $this->failServerError('Client gagal dihapus/sudah terhapus');
         }
-
-        return $this->respondDeleted(['message' => 'Client berhasil di-nonaktifkan']);
+        return $this->respondDeleted(['message' => 'Client berhasil dihapus']);
     }
 }

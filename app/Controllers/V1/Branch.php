@@ -28,7 +28,6 @@ class Branch extends BaseApiController
 
     public function showBranch_ByID($id = null)
     {
-
         $branch = $this->branchModel->getBranchByIdRaw($this->tenantId, $id);
 
         return $this->respond([
@@ -46,14 +45,14 @@ class Branch extends BaseApiController
                 'rules' => 'required|trim|max_length[100]|alpha_numeric_space',
                 'errors' => [
                     'required' => '{field} wajib diisi.',
-                    'alpha_numeric_space' => '{field} anya boleh berisi huruf, angka, dan spasi.',
+                    'alpha_numeric_space' => '{field} hanya boleh berisi huruf, angka, dan spasi.',
                 ]
             ],
             'address'   => [
                 'label' => 'Alamat',
                 'rules' => 'trim|max_length[255]|alpha_numeric_space',
                 'errors' => [
-                    'alpha_numeric_space' => '{field} anya boleh berisi huruf, angka, dan spasi.',
+                    'alpha_numeric_space' => '{field} hanya boleh berisi huruf, angka, dan spasi.',
                 ]
             ],
             'phone'   => [
@@ -82,10 +81,11 @@ class Branch extends BaseApiController
         }
         
         $data['tenant_id']  = $this->tenantId;
-        $data['created_by'] = auth_user_id();
+        // $data['created_by'] = auth_user_id();
         $data['is_active']  = 1;
 
-        $branch = $this->branchModel->insert_branch($data);
+        // $branch = $this->branchModel->insert_branch($data);
+        $branch = $this->branchModel->setContext(current_context())->insert_branch($data);
         if (!$branch->status) {
             return $this->failValidationErrors($branch->message);
         }
@@ -106,14 +106,14 @@ class Branch extends BaseApiController
                 'rules' => 'required|trim|max_length[100]|alpha_numeric_space',
                 'errors' => [
                     'required' => '{field} wajib diisi.',
-                    'alpha_numeric_space' => '{field} anya boleh berisi huruf, angka, dan spasi.',
+                    'alpha_numeric_space' => '{field} hanya boleh berisi huruf, angka, dan spasi.',
                 ]
             ],
             'address'   => [
                 'label' => 'Alamat',
                 'rules' => 'trim|max_length[255]|alpha_numeric_space',
                 'errors' => [
-                    'alpha_numeric_space' => '{field} anya boleh berisi huruf, angka, dan spasi.',
+                    'alpha_numeric_space' => '{field} hanya boleh berisi huruf, angka, dan spasi.',
                 ]
             ],
             'phone'   => [
@@ -131,7 +131,8 @@ class Branch extends BaseApiController
         }
 
         $data = $this->request->getJSON(true);
-        $branch = $this->branchModel->update_branch($id, $data);
+
+        $branch = $this->branchModel->setContext(current_context())->update_branch($id, $data);
         if (!$branch->status) {
             return $this->failValidationErrors($branch->message);
         }
@@ -145,10 +146,10 @@ class Branch extends BaseApiController
             return $this->failValidationErrors('ID Branch tidak valid');
         }
         
-        $branch = $this->branchModel->delete_branch($id);
+        $branch = $this->branchModel->setContext(current_context())->delete_branch($id);
         if (!$branch){
-            return $this->failServerError('Branch Gagal di hapus/sudah terhapus');
+            return $this->failServerError('Branch gagal dihapus/sudah terhapus');
         }
-        return $this->respondDeleted(['message' => 'Branch berhasil di hapus']);
+        return $this->respondDeleted(['message' => 'Branch berhasil dihapus']);
     }
 }

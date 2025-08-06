@@ -18,8 +18,7 @@ class Mdl_role extends BaseModel
 
     public function getAllRolesRaw($tenantId)
     {
-        $sql = "SELECT 
-                    *
+        $sql = "SELECT *
                 FROM roles
                 WHERE tenant_id = ? AND is_active = 1
                 ORDER BY id ASC";
@@ -29,12 +28,51 @@ class Mdl_role extends BaseModel
 
     public function getRoleByIdRaw($tenantId, $currencyId)
     {
-        $sql = "SELECT 
-                    *
+        $sql = "SELECT *
                 FROM roles
                 WHERE id = ? AND tenant_id = ? AND is_active = 1
                 LIMIT 1";
 
         return $this->db->query($sql, [$currencyId, $tenantId])->getRowArray();
+    }
+
+    public function insert_role($data)
+    {
+        $id = $this->insert($data, true); // pakai method bawaan dari BaseModel
+
+        if (!$id) {
+            return (object) [
+                'status'  => false,
+                'message' => $this->errors(), // kalau pakai Validation bawaan Model
+            ];
+        }
+
+        return (object) [
+            'status'  => true,
+            'message' => [],
+            'id'      => $id,
+        ];
+    }
+
+    public function update_role($id, $data)
+    {
+        $success = $this->update($id, $data); // <- pakai method bawaan Model
+
+        if (!$success) {
+            return (object)[
+                'status'  => false,
+                'message' => $this->errors() ?: $this->db->error(),
+            ];
+        }
+
+        return (object)[
+            'status'  => true,
+            'message' => [],
+        ];
+    }
+
+    public function delete_role($id)
+    {
+        return $this->softDelete($id, ['is_active' => 0]);
     }
 }

@@ -34,6 +34,47 @@ class Mdl_currency extends BaseModel
         return $this->db->query($sql, [$clientId, $tenantId])->getRowArray();
     }
 
+    
+    public function insert_currency($data)
+    {
+        $id = $this->insert($data, true); // pakai method bawaan dari BaseModel
+
+        if (!$id) {
+            return (object) [
+                'status'  => false,
+                'message' => $this->errors(), // kalau pakai Validation bawaan Model
+            ];
+        }
+
+        return (object) [
+            'status'  => true,
+            'message' => [],
+            'id'      => $id,
+        ];
+    }
+
+    public function update_currency($id, $data)
+    {
+        $success = $this->update($id, $data); // <- pakai method bawaan Model
+
+        if (!$success) {
+            return (object)[
+                'status'  => false,
+                'message' => $this->errors() ?: $this->db->error(),
+            ];
+        }
+
+        return (object)[
+            'status'  => true,
+            'message' => [],
+        ];
+    }
+
+    public function delete_currency($id)
+    {
+        return $this->softDelete($id, ['is_active' => 0]);
+    }
+
     public function getTodayCurrencyByBranch($branchId)
     {
         $sql = "SELECT * 

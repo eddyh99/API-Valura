@@ -56,6 +56,19 @@ class BaseModel extends Model
 
         return $result;
     }
+    public function softDelete($id, array $data = [])
+    {
+        $oldData = $this->find($id);
+
+        // Lakukan update manual tanpa trigger log bawaan
+        $result = parent::update($id, $data); // langsung ke parent
+
+        if ($this->auditEnabled && $result) {
+            $this->logAudit('DELETE', $id, $oldData, $data);
+        }
+
+        return $result;
+    }
 
     protected function logAudit(string $action, $recordId, $oldData = null, $newData = null)
     {
