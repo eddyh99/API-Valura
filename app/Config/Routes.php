@@ -101,7 +101,8 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
 
     $routes->post('client/recap', 'V1\Transaction::showClientRecap');
     $routes->get('bank-settlement', 'V1\BankSettlement::show_all_settlements');
-    $routes->get('bank-settlement', 'V1\BankSettlement::create');
+    $routes->post('bank-settlement', 'V1\BankSettlement::create');
+    $routes->get('transaction-lines/by_currency/(:num)', 'V1\BankSettlement::showTransactLines_ByCurrID/$1');
 });
 
 // Bank

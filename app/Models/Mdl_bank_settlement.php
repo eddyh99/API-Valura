@@ -51,4 +51,27 @@ class Mdl_bank_settlement extends BaseModel
 
         return $this->db->query($sql, [$tenantId])->getResultArray();
     }
+
+    public function getTransactLinesByCurrIdRaw($tenantId, $currencyId)
+    {
+        $sql = "
+            SELECT 
+                tl.id,
+                tl.transaction_id,
+                tl.amount_foreign,
+                tl.settlement_status
+            FROM 
+                transaction_lines tl
+            JOIN 
+                transactions t ON t.id = tl.transaction_id
+            WHERE 
+                tl.currency_id = ?
+                AND tl.settlement_status = 'PENDING'
+                AND t.tenant_id = ?
+            ORDER BY 
+                tl.id ASC
+        ";
+
+        return $this->db->query($sql, [$currencyId, $tenantId])->getResultArray();
+    }
 }

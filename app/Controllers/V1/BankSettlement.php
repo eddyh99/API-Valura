@@ -25,6 +25,16 @@ class BankSettlement extends BaseApiController
         ]);
     }
 
+    public function showTransactLines_ByCurrID($id = null)
+    {
+        $transactionLines = $this->settlementModel->getTransactLinesByCurrIdRaw($this->tenantId, $id);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $transactionLines
+        ]);
+    }
+
     public function create() 
     {
         $db = \Config\Database::connect();
