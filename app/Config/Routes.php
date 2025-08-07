@@ -100,6 +100,8 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->get('transaction/daily', 'V1\Transaction::showDailyTransaction');
 
     $routes->post('client/recap', 'V1\Transaction::showClientRecap');
+    $routes->get('bank-settlement', 'V1\BankSettlement::show_all_settlements');
+    $routes->get('bank-settlement', 'V1\BankSettlement::create');
 });
 
 // Bank

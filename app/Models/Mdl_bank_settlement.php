@@ -16,6 +16,8 @@ class Mdl_bank_settlement extends BaseModel
         'account_number',
         'amount_foreign',
         'rate_used',
+        'amount_settled',
+        'local_total',
         'transaction_date',
         'created_by',
         'created_at'
@@ -23,4 +25,30 @@ class Mdl_bank_settlement extends BaseModel
 
     protected $useTimestamps = false;
     protected $auditEnabled  = true;
+
+    public function getAllSettlementsRaw($tenantId)
+    {
+        $sql = "
+            SELECT 
+                tl.currency_id,
+                c.code AS currency_code,
+                SUM(tl.amount_foreign) AS pending_amount
+            FROM 
+                transaction_lines tl
+            JOIN 
+                transactions t ON t.id = tl.transaction_id
+            JOIN 
+                currencies c ON c.id = tl.currency_id
+            WHERE 
+                t.tenant_id = ?
+                AND tl.settlement_status = 'PENDING'
+                AND c.is_active = 1
+            GROUP BY 
+                tl.currency_id, c.code
+            ORDER BY 
+                c.code ASC
+        ";
+
+        return $this->db->query($sql, [$tenantId])->getResultArray();
+    }
 }

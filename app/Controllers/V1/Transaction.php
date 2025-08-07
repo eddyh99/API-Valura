@@ -23,6 +23,7 @@ class Transaction extends BaseApiController
     }
 
     // Show Client Data by Date & Branch
+    // POST
     public function showClientRecap()
     {
         $tenantId = auth_tenant_id();
@@ -52,6 +53,8 @@ class Transaction extends BaseApiController
             'Data'       => $clientData
         ]);
     }
+    // GET
+
 
     // public function showClientRecap()
     // {
@@ -101,10 +104,23 @@ class Transaction extends BaseApiController
     // Show Daily Transaction by Today & Branch
     public function showDailyTransaction()
     {
-        $tenantId = auth_tenant_id();
-        $branchId = auth_branch_id();
+        $today = date('Y-m-d');
+        $inputBranchId = $this->request->getGet('branch_id');
+        $branchId = $inputBranchId ?? $this->branchId;
 
-        $data = $this->transactionModel->getDailyTransactionRaw($tenantId, $branchId);
+        // Validasi: harus angka
+        if (!is_numeric($branchId)) {
+            return $this->failValidationErrors([
+                'branch_id' => 'Branch ID harus berupa angka.'
+            ]);
+        }
+
+        // Query ke model
+        $data = $this->transactionModel->getDailyTransactionRaw($this->tenantId, $branchId, $today);
+
+        if ($data === false) {
+            return $this->failNotFound("Branch tidak ditemukan atau tidak aktif.");
+        }
 
         return $this->respond([
             'status' => true,

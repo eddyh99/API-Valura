@@ -120,9 +120,27 @@ class Mdl_transaction extends BaseModel
 
         return $this->db->query($sql, [$tenantId, $transactionId])->getRowArray();
     }
+    
     // Show Daily Transaction by Today & Branch
-    public function getDailyTransactionRaw($tenantId, $branchId)
+    public function getDailyTransactionRaw($tenantId, $branchId, $date)
     {
+        // Pertama, pastikan branch valid dan aktif
+        $branchCheckSql = "
+            SELECT id
+            FROM branches
+            WHERE id = ?
+            AND tenant_id = ?
+            AND is_active = 1
+            LIMIT 1
+        ";
+        $branchCheck = $this->db->query($branchCheckSql, [$branchId, $tenantId])->getRow();
+
+        if (!$branchCheck) {
+            // Branch tidak ditemukan atau tidak aktif
+            return false;
+        }
+
+        // Kalau lolos validasi, lanjut ambil transaksi harian
         $sql = "
             SELECT 
                 tr.id AS transaction_id,
@@ -131,18 +149,17 @@ class Mdl_transaction extends BaseModel
                 c.code AS currency,
                 tl.rate_used AS rate,
                 tl.amount_foreign,
-                tl.amount_local,
                 (tl.amount_foreign * tl.rate_used) AS subtotal_local_estimation
             FROM transactions tr
             JOIN transaction_lines tl ON tl.transaction_id = tr.id
             JOIN currencies c ON c.id = tl.currency_id
             WHERE tr.tenant_id = ?
-                AND tr.branch_id = ?
-                AND DATE(tr.created_at) = CURDATE()
+            AND tr.branch_id = ?
+            AND DATE(tr.created_at) = ?
             ORDER BY tr.created_at ASC
         ";
 
-        return $this->db->query($sql, [$tenantId, $branchId])->getResultArray();
+        return $this->db->query($sql, [$tenantId, $branchId, $date])->getResultArray();
     }
 
     public function getCurrencySummaryRaw($tenantId, $branch_id, $startDate = null, $endDate = null)

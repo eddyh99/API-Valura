@@ -210,4 +210,15 @@ class Currency extends BaseApiController
 
         return $this->respond($response);
     }
+
+    // Show Currencies Recap
+    public function show_currency_recap()
+    {
+        $currencies = $this->currencyModel->getAllCurrenciesRaw($this->tenantId);
+
+        return $this->respond([
+            'status' => true,
+            'data' => $currencies
+        ]);
+    }
 }
