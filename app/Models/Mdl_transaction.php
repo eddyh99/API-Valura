@@ -104,7 +104,7 @@ class Mdl_transaction extends BaseModel
                             'det_id', tl.id,
                             'currency_id', tl.currency_id,
                             'amount_foreign', tl.amount_foreign,
-                            'amount_local', tl.amount_local,
+
                             'rate_used', tl.rate_used,
                             'currency_code', c.code,
                             'currency_name', c.name
@@ -161,6 +161,155 @@ class Mdl_transaction extends BaseModel
 
         return $this->db->query($sql, [$tenantId, $branchId, $date])->getResultArray();
     }
+
+    // Show Monthly Profit
+    public function getMonthlyProfitRaw($tenantId, $month, $year)
+    {
+        $sql = "
+            SELECT 
+                -- Bank settlement (profit from selisih kurs bank)
+                SUM((bt.amount_foreign * bt.rate_used) - bt.local_total) AS bank_settlement,
+
+                -- Total pembelian lokal
+                SUM(CASE WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign * tl.rate_used ELSE 0 END) AS total_buy_local,
+
+                -- Total penjualan lokal
+                SUM(CASE WHEN tr.transaction_type = 'SELL' THEN tl.amount_foreign * tl.rate_used ELSE 0 END) AS total_sell_local,
+
+                -- Biaya-biaya dari kas (cash_movements) OUT
+                (
+                    SELECT COALESCE(SUM(cm.amount), 0)
+                    FROM cash_movements cm
+                    WHERE cm.tenant_id = ?
+                    AND cm.movement_type = 'OUT'
+                    AND MONTH(cm.occurred_at) = ?
+                    AND YEAR(cm.occurred_at) = ?
+                    AND cm.is_active = 1
+                ) AS total_costs
+
+            FROM transactions tr
+            JOIN transaction_lines tl ON tl.transaction_id = tr.id
+            LEFT JOIN settlement_details sd ON sd.transaction_id = tr.id
+            LEFT JOIN bank_transactions bt ON bt.id = sd.bank_transaction_id AND bt.tenant_id = tr.tenant_id
+            WHERE tr.tenant_id = ?
+            AND MONTH(tr.transaction_date) = ?
+            AND YEAR(tr.transaction_date) = ?
+        ";
+
+        // urutan parameter = cm.tenant_id, cm.month, cm.year, cm.tenant_id, tr.month, tr.year
+        return $this->db->query($sql, [$tenantId, $month, $year, $tenantId, $month, $year])->getRowArray();
+    }
+    // public function getMonthlyProfitRaw($tenantId, $month, $year)
+    // {
+    //     $sql = "
+    //         SELECT 
+    //             AVG(bt.rate_used) AS avg_settlement_rate,
+    //             SUM(CASE WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign * tl.rate_used ELSE 0 END) AS total_buy_local,
+    //             SUM(CASE WHEN tr.transaction_type = 'SELL' THEN tl.amount_foreign * tl.rate_used ELSE 0 END) AS total_sell_local,
+    //             SUM(CASE WHEN tl.settlement_status = 'SETTLED' THEN tl.amount_foreign ELSE 0 END) AS saldo_foreign,
+    //             SUM(
+    //                 CASE 
+    //                     WHEN tr.transaction_type = 'SELL' THEN 
+    //                         tl.amount_foreign * tl.rate_used 
+    //                     ELSE 0 
+    //                 END
+    //             ) - 
+    //             SUM(
+    //                 CASE 
+    //                     WHEN tr.transaction_type = 'BUY' THEN 
+    //                         tl.amount_foreign * tl.rate_used 
+    //                     ELSE 0 
+    //                 END
+    //             ) AS retail_profit,
+    //             SUM(
+    //                 (bt.amount_foreign * bt.rate_used) - bt.local_total
+    //             ) AS bank_profit
+    //         FROM transactions tr
+    //         JOIN transaction_lines tl ON tl.transaction_id = tr.id
+    //         JOIN currencies c ON c.id = tl.currency_id
+    //         LEFT JOIN settlement_details sd ON sd.transaction_id = tr.id
+    //         LEFT JOIN bank_transactions bt ON bt.id = sd.bank_transaction_id AND bt.tenant_id = tr.tenant_id
+    //         WHERE tr.tenant_id = ?
+    //         AND MONTH(tr.transaction_date) = ?
+    //         AND YEAR(tr.transaction_date) = ?
+    //     ";
+
+    //     return $this->db->query($sql, [$tenantId, $month, $year])->getRowArray();
+    // }
+    // public function getMonthlyProfitRaw($tenantId, $month, $year)
+    // {
+    //     $sql = "
+    //     SELECT 
+    //         c.code AS currency_code,
+
+    //         -- Total pembelian (BUY)
+    //         SUM(CASE WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign ELSE 0 END) AS total_buy_amount,
+    //         SUM(CASE WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign * tl.rate_used ELSE 0 END) AS total_buy_local,
+
+    //         -- Total penjualan (SELL)
+    //         SUM(CASE WHEN tr.transaction_type = 'SELL' THEN tl.amount_foreign ELSE 0 END) AS total_sell_amount,
+    //         SUM(CASE WHEN tr.transaction_type = 'SELL' THEN tl.amount_foreign * tl.rate_used ELSE 0 END) AS total_sell_local,
+
+    //         -- Saldo akhir valas
+    //         (SUM(CASE WHEN tr.transaction_type = 'BUY' THEN tl.amount_foreign ELSE 0 END) -
+    //         SUM(CASE WHEN tr.transaction_type = 'SELL' THEN tl.amount_foreign ELSE 0 END)) AS saldo_foreign,
+
+    //         -- Profit Retail
+    //         SUM(CASE WHEN tr.transaction_type = 'SELL' THEN 
+    //             (tl.rate_used - (
+    //                 SELECT AVG(tl2.rate_used)
+    //                 FROM transaction_lines tl2
+    //                 JOIN transactions tr2 ON tr2.id = tl2.transaction_id
+    //                 WHERE tr2.transaction_type = 'BUY'
+    //                 AND tl2.currency_id = c.id
+    //                 AND tr2.tenant_id = ?
+    //                 AND MONTH(tr2.transaction_date) = ?
+    //                 AND YEAR(tr2.transaction_date) = ?
+    //             )) * tl.amount_foreign ELSE 0 END) AS retail_profit,
+
+    //         -- Profit dari Settlement (keuntungan dari bank)
+    //         (
+    //             SELECT COALESCE(SUM(
+    //                 (bt.rate_used - (
+    //                     SELECT AVG(tl3.rate_used)
+    //                     FROM transaction_lines tl3
+    //                     JOIN transactions tr3 ON tr3.id = tl3.transaction_id
+    //                     WHERE tr3.transaction_type = 'BUY'
+    //                     AND tl3.currency_id = c.id
+    //                     AND tr3.tenant_id = ?
+    //                     AND MONTH(tr3.transaction_date) = ?
+    //                     AND YEAR(tr3.transaction_date) = ?
+    //                 )) * bt.amount_foreign
+    //             ), 0)
+    //             FROM bank_transactions bt
+    //             WHERE bt.currency_id = c.id
+    //             AND bt.tenant_id = ?
+    //             AND MONTH(bt.transaction_date) = ?
+    //             AND YEAR(bt.transaction_date) = ?
+    //         ) AS bank_profit
+
+    //     FROM transaction_lines tl
+    //     JOIN transactions tr ON tr.id = tl.transaction_id
+    //     JOIN currencies c ON c.id = tl.currency_id
+
+    //     WHERE tr.tenant_id = ?
+    //     AND tl.settlement_status = 'SETTLED'
+    //     AND MONTH(tr.transaction_date) = ?
+    //     AND YEAR(tr.transaction_date) = ?
+
+    //     GROUP BY c.id, c.code
+    //     ORDER BY c.code
+    //     ";
+
+    //     $params = [
+    //         $tenantId, $month, $year,   // AVG rate retail profit
+    //         $tenantId, $month, $year,   // AVG rate bank profit
+    //         $tenantId, $month, $year,   // bank rate profit
+    //         $tenantId, $month, $year    // main query
+    //     ];
+
+    //     return $this->db->query($sql, $params)->getResultArray();
+    // }
 
     public function getCurrencySummaryRaw($tenantId, $branch_id, $startDate = null, $endDate = null)
     {

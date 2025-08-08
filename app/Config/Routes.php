@@ -98,6 +98,7 @@ $routes->group('', ['filter' => 'authApi'], function($routes) {
     $routes->put('transaction/(:num)', 'V1\Transaction::update/$1');
     $routes->delete('transaction/(:num)', 'V1\Transaction::delete/$1');
     $routes->get('transaction/daily', 'V1\Transaction::showDailyTransaction');
+    $routes->get('profit/monthly', 'V1\Transaction::showMonthlyProfit');
 
     $routes->post('client/recap', 'V1\Transaction::showClientRecap');
     $routes->get('bank-settlement', 'V1\BankSettlement::show_all_settlements');

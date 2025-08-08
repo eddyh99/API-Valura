@@ -22,8 +22,7 @@ class Transaction extends BaseApiController
         $this->branchModel      = new Mdl_branch();
     }
 
-    // Show Client Data by Date & Branch
-    // POST
+    // Show Client Data by Date & Branch (POST)
     public function showClientRecap()
     {
         $tenantId = auth_tenant_id();
@@ -53,39 +52,6 @@ class Transaction extends BaseApiController
             'Data'       => $clientData
         ]);
     }
-    // GET
-
-
-    // public function showClientRecap()
-    // {
-    //     $tenantId = auth_tenant_id();
-    //     $branchId = $this->request->getVar('branch_id');
-    //     $dateRange = $this->request->getVar('range_date'); // e.g. "28 Jul 2025 - 29 Jul 2025"
-
-    //     if ($dateRange) {
-    //         [$start, $end] = explode(' - ', $dateRange);
-    //         $start = date('Y-m-d', strtotime($start));
-    //         $end = date('Y-m-d', strtotime($end));
-    //     } else {
-    //         $start = $end = date('Y-m-d');
-    //     }
-
-    //     $branchName = 'Semua Cabang';
-    //     if ($branchId) {
-    //         $branch = $this->branchModel->find($branchId);
-    //         if ($branch) {
-    //             $branchName = $branch['name'];
-    //         }
-    //     }
-
-    //     $data = $this->transactionModel->getClientRecapRaw($tenantId, $branchId, $start, $end);
-
-    //     return $this->respond([
-    //         'Range Date' => date('d-m-Y', strtotime($start)) . ' - ' . date('d-m-Y', strtotime($end)),
-    //         'Branch'     => $branchName,
-    //         'Data'       => $data
-    //     ]);
-    // }
 
     // Show Transaction by ID
     public function showTransaction_ByID($id = null)
@@ -127,6 +93,136 @@ class Transaction extends BaseApiController
             'data' => $data
         ]);
     }
+
+    // Show Monthly Profit 
+    public function showMonthlyProfit()
+    {
+        $today = date('Y-m-d');
+        $todayMonth = (int) date('n');
+        $todayYear = (int) date('Y');
+
+        $inputMonth = $this->request->getGet('month');
+        $inputYear = $this->request->getGet('year');
+
+        $month = $inputMonth !== null ? (int) $inputMonth : $todayMonth;
+        $year = $inputYear !== null ? (int) $inputYear : $todayYear;
+
+        if (!is_numeric($month) || $month < 1 || $month > 12) {
+            return $this->failValidationErrors(['month' => 'Bulan harus berupa angka antara 1 sampai 12.']);
+        }
+        if (!is_numeric($year) || strlen($year) !== 4) {
+            return $this->failValidationErrors(['year' => 'Tahun harus berupa angka 4 digit.']);
+        }
+
+        if ($year > $todayYear || ($year == $todayYear && $month > $todayMonth)) {
+            return $this->failValidationErrors([
+                'error' => "Bulan dan tahun tidak boleh lebih dari hari ini: {$todayMonth}-{$todayYear}"
+            ]);
+        }
+
+        $data = $this->transactionModel->getMonthlyProfitRaw($this->tenantId, $month, $year);
+
+        if ($data === false) {
+            return $this->failNotFound("Data tidak ditemukan.");
+        }
+
+        $response = [
+            ['label' => 'bank_settlement', 'value' => $data['bank_settlement']],
+            ['label' => 'buy_total', 'value' => $data['total_buy_local']],
+            ['label' => 'sell_total', 'value' => $data['total_sell_local']],
+            ['label' => 'costs', 'value' => $data['total_costs']],
+        ];
+
+        return $this->respond([
+            'status' => true,
+            'data' => $response
+        ]);
+    }
+    // public function showMonthlyProfit()
+    // {
+    //     $today = date('Y-m-d');
+    //     $todayMonth = (int) date('n');  // 1–12
+    //     $todayYear = (int) date('Y');
+
+    //     $inputMonth = $this->request->getGet('month');
+    //     $inputYear = $this->request->getGet('year');
+
+    //     // Jika kosong, pakai default hari ini
+    //     $month = $inputMonth !== null ? (int) $inputMonth : $todayMonth;
+    //     $year = $inputYear !== null ? (int) $inputYear : $todayYear;
+
+    //     // Validasi angka
+    //     if (!is_numeric($month) || $month < 1 || $month > 12) {
+    //         return $this->failValidationErrors(['month' => 'Bulan harus berupa angka antara 1 sampai 12.']);
+    //     }
+    //     if (!is_numeric($year) || strlen($year) !== 4) {
+    //         return $this->failValidationErrors(['year' => 'Tahun harus berupa angka 4 digit.']);
+    //     }
+
+    //     // Validasi: Tidak boleh lebih dari bulan dan tahun hari ini
+    //     if ($year > $todayYear || ($year == $todayYear && $month > $todayMonth)) {
+    //         return $this->failValidationErrors([
+    //             'error' => "Bulan dan tahun tidak boleh lebih dari hari ini: {$todayMonth}-{$todayYear}"
+    //         ]);
+    //     }
+
+    //     // Query ke model
+    //     $data = $this->transactionModel->getMonthlyProfitRaw($this->tenantId, $month, $year);
+
+    //     if ($data === false) {
+    //         return $this->failNotFound("Data tidak ditemukan.");
+    //     }
+
+    //     // Bentuk struktur 5 baris
+    //     $response = [
+    //         ['label' => 'settlement_rate', 'value' => $data['avg_settlement_rate']], // optional, bisa null
+    //         ['label' => 'buy', 'value' => $data['total_buy_local']],
+    //         ['label' => 'sell', 'value' => $data['total_sell_local']],
+    //         ['label' => 'balance', 'value' => $data['saldo_foreign']],
+    //         ['label' => 'monthly_profit', 'value' => $data['retail_profit'] + $data['bank_profit']],
+    //     ];
+
+    //     return $this->respond([
+    //         'status' => true,
+    //         'data' => $response
+    //     ]);
+    // }
+    // public function showMonthlyProfit()
+    // {
+    //     $today = date('Y-m-d');
+    //     $todayMonth = (int) date('n');  // 1–12
+    //     $todayYear = (int) date('Y');
+
+    //     $inputMonth = $this->request->getGet('month');
+    //     $inputYear = $this->request->getGet('year');
+
+    //     // Jika kosong, pakai default hari ini
+    //     $month = $inputMonth !== null ? (int) $inputMonth : $todayMonth;
+    //     $year = $inputYear !== null ? (int) $inputYear : $todayYear;
+
+    //     // Validasi angka
+    //     if (!is_numeric($month) || $month < 1 || $month > 12) {
+    //         return $this->failValidationErrors(['month' => 'Bulan harus berupa angka antara 1 sampai 12.']);
+    //     }
+    //     if (!is_numeric($year) || strlen($year) !== 4) {
+    //         return $this->failValidationErrors(['year' => 'Tahun harus berupa angka 4 digit.']);
+    //     }
+
+    //     // Validasi: Tidak boleh lebih dari bulan dan tahun hari ini
+    //     if ($year > $todayYear || ($year == $todayYear && $month > $todayMonth)) {
+    //         return $this->failValidationErrors([
+    //             'error' => "Bulan dan tahun tidak boleh lebih dari hari ini: {$todayMonth}-{$todayYear}"
+    //         ]);
+    //     }
+
+    //     // Query ke model
+    //     $data = $this->transactionModel->getMonthlyProfitRaw($this->tenantId, $month, $year);
+
+    //     return $this->respond([
+    //         'status' => true,
+    //         'data' => $data
+    //     ]);
+    // }
 
     public function getTodayTransactionByBranch($branchId)
     {
@@ -207,57 +303,6 @@ class Transaction extends BaseApiController
             ]);
         }
     }
-    // public function create()
-    // {
-    //     $data = $this->request->getJSON(true);
-
-    //     $tenantId         = auth_tenant_id();
-    //     $userId           = auth_user_id();
-    //     $payload          = decode_jwt_payload();
-    //     $branchId         = $payload->branch_id ?? null;
-    //     $transactionType  = strtoupper($data['transaction_type'] ?? '');
-    //     $transactionDate  = $data['transaction_date'] ?? date('Y-m-d');
-
-    //     $client = $data["client"];
-    //     $client["tenant_id"] =  $tenantId;
-        
-    //     $transaksi = array(
-    //         "transaction_type"  => $transactionType,
-    //         "branch_id"         => $branchId,
-    //         "tenant_id"         => $tenantId,
-    //         "transaction_date"  => date("Y-m-d H:i:s"),
-    //         "created_by"        => $userId,
-    //         "created_at"        => date("Y-m-d H:i:s"),
-    //         "idempotency_key"   => $data["idempotency_key"]
-    //     );
-        
-    //     $transactionId= $this->transactionModel->insertTransactionRaw($transaksi, $client, $data["lines"]);
-
-    //     if (!$transactionId){
-    //          return $this->failNotFound('Transaksi gagal di tambahkan');
-    //     }
-
-    //     // Cek apakah ID dari transaksi tersebut didapat dari reuse idempotency (bukan insert baru)
-    //     $reused = false;
-
-    //     if (!empty($data['idempotency_key'])) {
-    //         $reused = $this->transactionModel->isIdempotencyKeyReused();
-    //     }
-
-    //     if ($reused) {
-    //         return $this->respond([
-    //             'message'         => 'Transaksi sudah pernah dilakukan',
-    //             'transaction_id'  => $transactionId,
-    //             'idemp_key'       => $data['idempotency_key']
-    //         ]);
-    //     } else {
-    //         return $this->respondCreated([
-    //             'message'         => 'Transaksi baru berhasil disimpan',
-    //             'transaction_id'  => $transactionId,
-    //             'idemp_key'       => $data['idempotency_key']
-    //         ]);
-    //     }
-    // }
 
     public function update($id = null)
     {
